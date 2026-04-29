@@ -215,6 +215,20 @@ pub fn get_user_transactions(env: &Env, user: Address) -> Vec<Transaction> {
     transactions
 }
 
+/// Get user transactions filtered by `tx_type` (e.g. `income`, `expense`).
+pub fn get_user_transactions_filtered(env: &Env, user: Address, tx_type: Symbol) -> Vec<Transaction> {
+    let transactions = get_user_transactions(env, user);
+    let mut filtered = Vec::new(env);
+
+    for tx in transactions.iter() {
+        if tx.tx_type == tx_type {
+            filtered.push_back(tx);
+        }
+    }
+
+    filtered
+}
+
 /// Clear all transactions for a user (only user can perform this)
 pub fn clear_user_transactions(env: &Env, user: Address) -> bool {
     let tx_ids: Vec<Symbol> = env

@@ -557,3 +557,34 @@ fn test_get_transactions_paginated_limit_capped_at_100() {
     let page = client.get_transactions_paginated(&0, &200);
     assert_eq!(page.len(), 100);
 }
+
+#[test]
+fn test_get_user_transactions_filtered_by_tx_type() {
+    let env = Env::default();
+    env.mock_all_auths();
+    let admin = Address::generate(&env);
+    let contract_id = env.register(TransactionsContract, ());
+    let client = TransactionsContractClient::new(&env, &contract_id);
+    client.initialize(&admin);
+
+    let user = Address::generate(&env);
+    let to = Address::generate(&env);
+    let note = String::from_str(&env, "typed");
+    let memo = String::from_str(&env, "memo");
+    let tags = Vec::new(&env);
+    let income = Symbol::new(&env, "income");
+    let expense = Symbol::new(&env, "expense");
+
+    let income_tx_1 = client.create_transaction(&user, &to, &100, &note, &memo, &tags, &income);
+    let expense_tx = client.create_transaction(&user, &to, &50, &note, &memo, &tags, &expense);
+    let income_tx_2 = client.create_transaction(&user, &to, &75, &note, &memo, &tags, &income);
+
+    let income_txs = client.get_user_transactions_filtered(&user, &income);
+    assert_eq!(income_txs.len(), 2);
+    assert_eq!(income_txs.get(0).unwrap().id, income_tx_1);
+    assert_eq!(income_txs.get(1).unwrap().id, income_tx_2);
+
+    let expense_txs = client.get_user_transactions_filtered(&user, &expense);
+    assert_eq!(expense_txs.len(), 1);
+    assert_eq!(expense_txs.get(0).unwrap().id, expense_tx);
+}
