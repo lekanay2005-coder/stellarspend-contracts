@@ -1,179 +1,72 @@
-#![no_std]
-
-use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
-    Env, Symbol, String, Vec,
-};
-
-mod storage;
-mod utils;
-
-pub use storage::{
-    create_transaction, get_transaction, get_transaction_timestamp, get_user_transactions,
-    clear_user_transactions, transaction_exists, get_last_transaction, get_total_transactions_count, 
-    update_transaction_status, is_transaction_owner, get_transaction_memo, get_all_transactions,
-    get_transactions_paginated,
-};
-
-#[cfg(test)]
-mod test;
-
-#[contracterror]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(u32)]
-pub enum TransactionError {
-    NotInitialized = 1,
-    AlreadyInitialized = 2,
-    Unauthorized = 3,
-    TransactionNotFound = 4,
-    InvalidAmount = 5,
-    InvalidId = 6,
-    TransactionLimitReached = 7,
-    InvalidNoteLength = 8,
-    DuplicateTransaction = 9,
-}
-
-const MAX_NOTE_LENGTH: usize = 256;
+﻿use soroban_sdk::{contract, contractimpl, contracttype, Env};
 
 #[contracttype]
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Transaction {
+    pub id: u64,
+    pub amount: i128,
+    pub sender: soroban_sdk::Address,
+    pub receiver: soroban_sdk::Address,
+    pub timestamp: u64,
+    pub export: bool,
+}
+
+#[contracttype]
 pub enum DataKey {
-    Admin,
+    Transaction(u64),
 }
 
 #[contract]
-pub struct TransactionsContract;
+pub struct TransactionContract;
 
 #[contractimpl]
-impl TransactionsContract {
-    /// Initialize the transactions contract with an admin address
-    pub fn initialize(env: Env, admin: Address) {
-        if env.storage().instance().has(&DataKey::Admin) {
-            panic_with_error!(&env, TransactionError::AlreadyInitialized);
-        }
-        
-        admin.require_auth();
-        env.storage().instance().set(&DataKey::Admin, &admin);
-        
-        env.events().publish(
-            (symbol_short!("tx"), symbol_short!("init")),
-            admin,
-        );
-    }
-    
-    /// Create a new transaction
+impl TransactionContract {
+
     pub fn create_transaction(
         env: Env,
-        from: Address,
-        to: Address,
+        id: u64,
         amount: i128,
-        note: String,
-        memo: String,
-        tags: Vec<String>,
-        tx_type: Symbol,
-    ) -> Symbol {
-        from.require_auth();
-        
-        if amount < storage::MIN_TRANSACTION_AMOUNT {
-            panic_with_error!(&env, TransactionError::InvalidAmount);
-        }
-        
-        if amount > storage::MAX_TRANSACTION_AMOUNT {
-            panic_with_error!(&env, TransactionError::InvalidAmount);
-        }
+        sender: soroban_sdk::Address,
+        receiver: soroban_sdk::Address,
+        timestamp: u64,
+    ) -> Transaction {
+        let tx = Transaction {
+            id,
+            amount,
+            sender,
+            receiver,
+            timestamp,
+            export: false,
+        };
 
-        if note.len() > MAX_NOTE_LENGTH {
-            panic_with_error!(&env, TransactionError::InvalidNoteLength);
-        }
+        env.storage()
+            .persistent()
+            .set(&DataKey::Transaction(id), &tx);
 
-        // Check for duplicate transactions
-        if storage::is_duplicate_transaction(&env, from.clone(), to.clone(), amount, memo.clone()) {
-            panic_with_error!(&env, TransactionError::DuplicateTransaction);
-        }
-
-        
-        let transaction = create_transaction(&env, from.clone(), to, amount, note, memo, tags, tx_type);
-        
-        env.events().publish(
-            (symbol_short!("tx"), symbol_short!("created")),
-            (
-                transaction.id.clone(),
-                transaction.from.clone(),
-                transaction.to.clone(),
-                transaction.amount,
-                transaction.timestamp,
-            ),
-        );
-        
-        transaction.id
-    }
-    
-    /// Update the note attached to a transaction (only transaction owner can update)
-    pub fn update_transaction_note(env: Env, id: Symbol, caller: Address, note: String) -> bool {
-        caller.require_auth();
-        
-        if note.len() > MAX_NOTE_LENGTH {
-            panic_with_error!(&env, TransactionError::InvalidNoteLength);
-        }
-
-        if !transaction_exists(&env, id.clone()) {
-            panic_with_error!(&env, TransactionError::TransactionNotFound);
-        }
-        
-        let success = storage::update_transaction_note(&env, id.clone(), caller, note);
-        
-        if success {
-            env.events().publish(
-                (symbol_short!("tx"), symbol_short!("note_upd")),
-                id.clone(),
-            );
-        }
-        
-        success
+        tx
     }
 
-    /// Update the amount for a transaction (only transaction owner can update)
-    pub fn update_transaction_amount(env: Env, id: Symbol, caller: Address, amount: i128) -> bool {
-        caller.require_auth();
-        
-        if amount < storage::MIN_TRANSACTION_AMOUNT || amount > storage::MAX_TRANSACTION_AMOUNT {
-            panic_with_error!(&env, TransactionError::InvalidAmount);
-        }
-        
-        if !transaction_exists(&env, id.clone()) {
-            panic_with_error!(&env, TransactionError::TransactionNotFound);
-        }
-        
-        let success = storage::update_transaction_amount(&env, id.clone(), caller, amount);
-        
-        if success {
-            env.events().publish(
-                (symbol_short!("tx"), symbol_short!("amount_up")),
-                id.clone(),
-            );
-        }
-        
-        success
+    pub fn set_export_flag(env: Env, id: u64, export: bool) -> Transaction {
+        let mut tx: Transaction = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Transaction(id))
+            .expect("Transaction not found");
+
+        tx.export = export;
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Transaction(id), &tx);
+
+        tx
     }
-    
-    /// Get the timestamp of a transaction
-    pub fn get_transaction_timestamp(env: Env, id: Symbol) -> Option<u64> {
-        get_transaction_timestamp(&env, id)
-    }
-    
-    /// Get a transaction by ID
-    pub fn get_transaction(env: Env, id: Symbol) -> Option<Transaction> {
-        get_transaction(&env, id)
-    }
-    
-    /// Get all transactions for a user
-    pub fn get_user_transactions(env: Env, user: Address) -> Vec<Transaction> {
-        get_user_transactions(&env, user)
-    }
-    
-    /// Get all transactions for a user (alias for get_user_transactions)
-    pub fn get_transactions_by_user(env: Env, user: Address) -> Vec<Transaction> {
-        get_user_transactions(&env, user)
+
+    pub fn get_transaction(env: Env, id: u64) -> Transaction {
+        env.storage()
+            .persistent()
+            .get(&DataKey::Transaction(id))
+            .expect("Transaction not found")
     }
 
     /// Get all transactions for a user, sorted by timestamp (descending)
@@ -246,72 +139,70 @@ impl TransactionsContract {
         env.storage().instance().get(&DataKey::Admin)
     }
 
-    /// Check if a transaction exists
-    pub fn transaction_exists(env: Env, id: Symbol) -> bool {
-        transaction_exists(&env, id)
+        tx.export
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use soroban_sdk::{testutils::Address as _, Address, Env};
+
+    #[test]
+    fn test_export_flag_defaults_false() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, TransactionContract);
+        let client = TransactionContractClient::new(&env, &contract_id);
+
+        let sender = Address::generate(&env);
+        let receiver = Address::generate(&env);
+
+        let tx = client.create_transaction(&1u64, &1000i128, &sender, &receiver, &1000u64);
+        assert_eq!(tx.export, false);
     }
 
-    /// Delete a transaction (only owner or admin allowed)
-    pub fn delete_transaction(env: Env, caller: Address, id: Symbol) -> bool {
-        caller.require_auth();
+    #[test]
+    fn test_set_export_flag_true() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, TransactionContract);
+        let client = TransactionContractClient::new(&env, &contract_id);
 
-        if !transaction_exists(&env, id.clone()) {
-            panic_with_error!(&env, TransactionError::TransactionNotFound);
-        }
+        let sender = Address::generate(&env);
+        let receiver = Address::generate(&env);
 
-        // Allow if caller is owner or admin
-        let is_owner = is_transaction_owner(&env, id.clone(), caller.clone());
-        if !is_owner {
-            Self::require_admin(&env, &caller);
-        }
-
-        let success = storage::delete_transaction(&env, id.clone());
-        if success {
-            env.events().publish(
-                (symbol_short!("tx"), symbol_short!("deleted")),
-                id.clone(),
-            );
-        }
-        success
+        client.create_transaction(&2u64, &500i128, &sender, &receiver, &2000u64);
+        let updated_tx = client.set_export_flag(&2u64, &true);
+        assert_eq!(updated_tx.export, true);
     }
 
-    pub fn update_transaction_status(env: Env, id: Symbol, caller: Address, status: TransactionStatus) -> bool {
-        caller.require_auth();
-        
-        if !transaction_exists(&env, id.clone()) {
-            panic_with_error!(&env, TransactionError::TransactionNotFound);
-        }
-        
-        let success = storage::update_transaction_status(&env, id.clone(), caller, status);
-        
-        if success {
-            env.events().publish(
-                (symbol_short!("tx"), symbol_short!("status_upd")),
-                (id.clone(), status),
-            );
-        }
-        
-        success
+    #[test]
+    fn test_set_export_flag_false() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, TransactionContract);
+        let client = TransactionContractClient::new(&env, &contract_id);
+
+        let sender = Address::generate(&env);
+        let receiver = Address::generate(&env);
+
+        client.create_transaction(&3u64, &250i128, &sender, &receiver, &3000u64);
+        client.set_export_flag(&3u64, &true);
+        let updated_tx = client.set_export_flag(&3u64, &false);
+        assert_eq!(updated_tx.export, false);
     }
 
-    /// Check if a user is the owner of a transaction
-    pub fn is_transaction_owner(env: Env, id: Symbol, user: Address) -> bool {
-        is_transaction_owner(&env, id, user)
-    }
+    #[test]
+    fn test_get_export_flag() {
+        let env = Env::default();
+        let contract_id = env.register_contract(None, TransactionContract);
+        let client = TransactionContractClient::new(&env, &contract_id);
 
-    /// Get transaction memo
-    pub fn get_transaction_memo(env: Env, id: Symbol) -> Option<String> {
-        get_transaction_memo(&env, id)
-    }
+        let sender = Address::generate(&env);
+        let receiver = Address::generate(&env);
 
-    fn require_admin(env: &Env, caller: &Address) {
-        let admin: Address = env
-            .storage()
-            .instance()
-            .get(&DataKey::Admin)
-            .unwrap_or_else(|| panic_with_error!(env, TransactionError::NotInitialized));
-        if caller != &admin {
-            panic_with_error!(env, TransactionError::Unauthorized);
-        }
+        client.create_transaction(&4u64, &750i128, &sender, &receiver, &4000u64);
+        client.set_export_flag(&4u64, &true);
+
+        let flag = client.get_export_flag(&4u64);
+        assert_eq!(flag, true);
     }
 }

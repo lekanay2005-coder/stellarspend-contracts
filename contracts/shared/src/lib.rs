@@ -13,6 +13,11 @@ pub fn get_version(env: Env) -> String {
     String::from_str(&env, SHARED_VERSION)
 }
 
+/// Health check function that returns true if the contract is active.
+pub fn health_check() -> bool {
+    true
+}
+
 #[contracttype]
 #[derive(Clone)]
 pub enum SharedDataKey {
