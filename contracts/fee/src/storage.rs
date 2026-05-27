@@ -42,17 +42,17 @@ pub enum DataKey {
 }
 
 pub fn has_admin(env: &Env) -> bool {
-    env.storage().instance().has(&DataKey::Admin)
+    env.storage().instance().has(&shared::SharedDataKey::Admin)
 }
 
 pub fn write_admin(env: &Env, admin: &Address) {
-    env.storage().instance().set(&DataKey::Admin, admin);
+    env.storage().instance().set(&shared::SharedDataKey::Admin, admin);
 }
 
 pub fn read_admin(env: &Env) -> Address {
     env.storage()
         .instance()
-        .get(&DataKey::Admin)
+        .get(&shared::SharedDataKey::Admin)
         .expect("Contract not initialized")
 }
 
