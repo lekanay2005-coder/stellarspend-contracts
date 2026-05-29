@@ -38,3 +38,43 @@ mod tests {
         assert_eq!(event.remaining_balance, 800);
     }
 }
+
+use crate::model::BudgetSnapshot;
+use crate::{calculate_budget_forecast, update_budget_on_spend};
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn calculates_depletion_correctly() {
+        let budget = BudgetSnapshot {
+            budget_id: "b1".to_string(),
+            total_limit: 1000,
+            spent_so_far: 500,
+            days_active: 5,
+            spend_history: vec![100, 100, 100, 100, 100],
+        };
+
+        let forecast = calculate_budget_forecast(&budget, "2026-05-29".to_string());
+
+        assert_eq!(forecast.daily_average_spend, 100.0);
+        assert!(forecast.projected_depletion_days.is_some());
+    }
+
+    #[test]
+    fn updates_budget_after_spend() {
+        let mut budget = BudgetSnapshot {
+            budget_id: "b1".to_string(),
+            total_limit: 1000,
+            spent_so_far: 200,
+            days_active: 2,
+            spend_history: vec![100, 100],
+        };
+
+        update_budget_on_spend(&mut budget, 50);
+
+        assert_eq!(budget.spent_so_far, 250);
+        assert_eq!(budget.spend_history.len(), 3);
+    }
+}
