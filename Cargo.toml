@@ -28,6 +28,8 @@ members = [
     "contracts/asset_control",
     "contracts/access-control",
     "contracts/category-analytics",
+    "contracts/spending-categories",
+    "contracts/wallet-profile",
     "contracts/users",
     "contracts/transactions",
 ]
