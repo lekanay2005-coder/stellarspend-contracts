@@ -1,10 +1,14 @@
 #![no_std]
 
+extern crate alloc;
+
 use soroban_sdk::{Env, String, Address, contracttype};
 
 pub mod utils;
 pub mod errors;
 pub mod auth;
+pub mod assets;
+pub mod sanitizer;
 
 pub use errors::SharedError;
 
@@ -40,6 +44,9 @@ pub fn update_contract_owner(env: &Env, new_owner: Address) {
     current_owner.require_auth();
     env.storage().instance().set(&SharedDataKey::Admin, &new_owner);
 }
+
+#[cfg(test)]
+mod test;
 
 #[cfg(test)]
 mod tests {
