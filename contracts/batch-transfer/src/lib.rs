@@ -11,7 +11,7 @@ pub use crate::types::{
     TransferRequest, TransferResult, MAX_BATCH_SIZE,
 };
 //bbbb
-use crate::validation::{validate_address, validate_amount};
+use crate::validation::{validate_address, validate_amount, validate_batch_not_empty};
 
 /// Error codes for the batch transfer contract.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -69,11 +69,13 @@ impl BatchTransferContract {
         caller.require_auth();
         Self::require_admin(&env, &caller);
 
-        // Validate batch size
-        let request_count = transfers.len();
-        if request_count == 0 {
+        // Validate batch is not empty (early validation for efficiency)
+        if validate_batch_not_empty(&transfers).is_err() {
             panic_with_error!(&env, BatchTransferError::EmptyBatch);
         }
+
+        // Validate batch size
+        let request_count = transfers.len();
         if request_count > MAX_BATCH_SIZE {
             panic_with_error!(&env, BatchTransferError::BatchTooLarge);
         }
@@ -263,10 +265,12 @@ impl BatchTransferContract {
         caller.require_auth();
         Self::require_admin(&env, &caller);
 
-        let request_count = burns.len();
-        if request_count == 0 {
+        // Validate batch is not empty (early validation for efficiency)
+        if validate_batch_not_empty(&burns).is_err() {
             panic_with_error!(&env, BatchTransferError::EmptyBatch);
         }
+
+        let request_count = burns.len();
         if request_count > MAX_BATCH_SIZE {
             panic_with_error!(&env, BatchTransferError::BatchTooLarge);
         }
