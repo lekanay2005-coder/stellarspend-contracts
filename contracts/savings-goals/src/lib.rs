@@ -48,6 +48,16 @@ pub enum SavingsGoalError {
     EmptyBatch = 4,
     /// Batch exceeds maximum size
     BatchTooLarge = 5,
+    /// Invalid contribution or withdrawal amount
+    InvalidAmount = 6,
+    /// Goal not found
+    GoalNotFound = 7,
+    /// Goal is not active
+    GoalNotActive = 8,
+    /// Goal is locked against withdrawals
+    GoalLocked = 9,
+    /// Insufficient goal balance for withdrawal
+    InsufficientBalance = 10,
 }
 
 impl From<SavingsGoalError> for soroban_sdk::Error {
@@ -319,6 +329,12 @@ impl SavingsGoalsContract {
                     goal_id_counter += 1;
 
                     let is_complete = request.initial_contribution >= request.target_amount;
+                    let created_at = env.ledger().timestamp();
+                    let unlock_at = if request.lock_duration_seconds > 0 {
+                        created_at.saturating_add(request.lock_duration_seconds)
+                    } else {
+                        0
+                    };
                     let goal = SavingsGoal {
                         goal_id: goal_id_counter,
                         user: request.user.clone(),
@@ -326,9 +342,10 @@ impl SavingsGoalsContract {
                         target_amount: request.target_amount,
                         current_amount: request.initial_contribution,
                         deadline: request.deadline,
-                        created_at: current_ledger,
+                        created_at,
                         is_active: true,
                         is_complete,
+                        unlock_at,
                     };
 
                     // Accumulate metrics
@@ -446,6 +463,102 @@ impl SavingsGoalsContract {
             results,
             metrics,
         }
+    }
+
+    /// Contributes funds to a savings goal and emits milestone events at 25/50/75/100%.
+    pub fn contribute_to_goal(env: Env, caller: Address, goal_id: u64, amount: i128) -> i128 {
+        caller.require_auth();
+
+        if amount <= 0 {
+            panic_with_error!(&env, SavingsGoalError::InvalidAmount);
+        }
+
+        let mut goal: SavingsGoal = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Goal(goal_id))
+            .unwrap_or_else(|| panic_with_error!(&env, SavingsGoalError::GoalNotFound));
+
+        if goal.user != caller {
+            panic_with_error!(&env, SavingsGoalError::Unauthorized);
+        }
+        if !goal.is_active {
+            panic_with_error!(&env, SavingsGoalError::GoalNotActive);
+        }
+
+        goal.current_amount = goal
+            .current_amount
+            .checked_add(amount)
+            .unwrap_or(i128::MAX);
+        goal.is_complete = goal.current_amount >= goal.target_amount;
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Goal(goal_id), &goal);
+
+        Self::check_and_emit_milestones(&env, goal_id);
+        GoalEvents::goal_contributed(&env, goal_id, &caller, amount, goal.current_amount);
+
+        goal.current_amount
+    }
+
+    /// Withdraws funds from a savings goal. Rejects withdrawals before unlock time when locked.
+    pub fn withdraw_from_goal(env: Env, caller: Address, goal_id: u64, amount: i128) -> i128 {
+        caller.require_auth();
+
+        if amount <= 0 {
+            panic_with_error!(&env, SavingsGoalError::InvalidAmount);
+        }
+
+        let mut goal: SavingsGoal = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Goal(goal_id))
+            .unwrap_or_else(|| panic_with_error!(&env, SavingsGoalError::GoalNotFound));
+
+        if goal.user != caller {
+            panic_with_error!(&env, SavingsGoalError::Unauthorized);
+        }
+        if !goal.is_active {
+            panic_with_error!(&env, SavingsGoalError::GoalNotActive);
+        }
+
+        let now = env.ledger().timestamp();
+        if goal.unlock_at > 0 && now < goal.unlock_at {
+            GoalEvents::goal_withdraw_locked(&env, goal_id, &caller, goal.unlock_at);
+            panic_with_error!(&env, SavingsGoalError::GoalLocked);
+        }
+
+        if amount > goal.current_amount {
+            panic_with_error!(&env, SavingsGoalError::InsufficientBalance);
+        }
+
+        goal.current_amount -= amount;
+        goal.is_complete = goal.current_amount >= goal.target_amount;
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Goal(goal_id), &goal);
+
+        GoalEvents::goal_withdrawn(&env, goal_id, &caller, amount, goal.current_amount);
+        goal.current_amount
+    }
+
+    /// Returns milestone percentages already triggered for a goal.
+    pub fn get_triggered_milestone_percents(env: Env, goal_id: u64) -> Vec<u32> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::GoalMilestonesPercent(goal_id))
+            .unwrap_or(Vec::new(&env))
+    }
+
+    /// Returns whether a goal is currently locked against withdrawals.
+    pub fn is_goal_locked(env: Env, goal_id: u64) -> bool {
+        let goal: SavingsGoal = match env.storage().persistent().get(&DataKey::Goal(goal_id)) {
+            Some(g) => g,
+            None => return false,
+        };
+        goal.unlock_at > 0 && env.ledger().timestamp() < goal.unlock_at
     }
 
     /// Emits milestone events automatically when goal progress crosses thresholds.

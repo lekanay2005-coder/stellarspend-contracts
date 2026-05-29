@@ -214,6 +214,7 @@ mod tests {
             target_amount: 100_000_000, // 10 XLM
             deadline: env.ledger().sequence() as u64 + 1000,
             initial_contribution: 10_000_000, // 1 XLM
+            lock_duration_seconds: 0,
         }
     }
 

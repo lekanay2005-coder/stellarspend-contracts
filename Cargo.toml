@@ -13,6 +13,7 @@ members = [
     "contracts/batch-payment",
     "contracts/batch-payment-reminders",
     "contracts/batch-wallet-creation",
+    "contracts/budget",
     "contracts/budget-recommendations",
     "contracts/fee",
     "contracts/shared-budgets",
