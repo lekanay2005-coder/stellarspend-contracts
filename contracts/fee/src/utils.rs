@@ -1,6 +1,6 @@
+use crate::storage::MAX_FEE_BPS;
 use alloc::format;
 use soroban_sdk::{Env, String};
-use crate::storage::MAX_FEE_BPS;
 
 /// Round up division for i128 values.
 pub fn round_up_div(numerator: i128, denominator: i128) -> Option<i128> {

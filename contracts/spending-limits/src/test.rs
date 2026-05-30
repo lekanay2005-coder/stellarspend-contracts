@@ -3,7 +3,11 @@
 #![cfg(test)]
 
 use crate::{SpendingLimitsContract, SpendingLimitsContractClient};
-use soroban_sdk::{symbol_short, testutils::{Address as _, Ledger}, Address, Env, Vec};
+use soroban_sdk::{
+    symbol_short,
+    testutils::{Address as _, Ledger},
+    Address, Env, Vec,
+};
 
 use crate::types::{ErrorCode, LimitUpdateResult, SpendingLimitRequest};
 

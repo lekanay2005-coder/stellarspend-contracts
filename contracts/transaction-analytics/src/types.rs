@@ -353,9 +353,16 @@ impl AnalyticsEvents {
         env.events().publish(topics, tx_id);
     }
 
-    pub fn operation_fee_updated(env: &Env, admin: &Address, operation: &Symbol, previous: Option<FeeConfig>, new: FeeConfig) {
+    pub fn operation_fee_updated(
+        env: &Env,
+        admin: &Address,
+        operation: &Symbol,
+        previous: Option<FeeConfig>,
+        new: FeeConfig,
+    ) {
         let topics = (symbol_short!("fee"), symbol_short!("operation_updated"));
-        env.events().publish(topics, (admin.clone(), operation.clone(), previous, new));
+        env.events()
+            .publish(topics, (admin.clone(), operation.clone(), previous, new));
     }
 
     pub fn fee_cap_changed(env: &Env, admin: &Address, previous: Option<u64>, new: Option<u64>) {
@@ -455,7 +462,11 @@ impl AnalyticsEvents {
     }
 
     pub fn fee_distributed(env: &Env, recipient: &Address, amount: i128, share_bps: u32) {
-        let topics = (symbol_short!("fee"), symbol_short!("distributed"), recipient);
+        let topics = (
+            symbol_short!("fee"),
+            symbol_short!("distributed"),
+            recipient,
+        );
         env.events().publish(topics, (amount, share_bps));
     }
 

@@ -333,9 +333,16 @@ impl GoalEvents {
     }
 
     /// Event emitted when a contribution is made to a goal.
-    pub fn goal_contributed(env: &Env, goal_id: u64, user: &Address, amount: i128, new_total: i128) {
+    pub fn goal_contributed(
+        env: &Env,
+        goal_id: u64,
+        user: &Address,
+        amount: i128,
+        new_total: i128,
+    ) {
         let topics = (symbol_short!("goal"), symbol_short!("contrib"), goal_id);
-        env.events().publish(topics, (user.clone(), amount, new_total));
+        env.events()
+            .publish(topics, (user.clone(), amount, new_total));
     }
 
     /// Event emitted when a withdrawal is rejected because the goal is locked.
@@ -347,7 +354,8 @@ impl GoalEvents {
     /// Event emitted when funds are withdrawn from a goal.
     pub fn goal_withdrawn(env: &Env, goal_id: u64, user: &Address, amount: i128, remaining: i128) {
         let topics = (symbol_short!("goal"), symbol_short!("withdraw"), goal_id);
-        env.events().publish(topics, (user.clone(), amount, remaining));
+        env.events()
+            .publish(topics, (user.clone(), amount, remaining));
     }
 
     /// Event emitted when milestone achievement fails.

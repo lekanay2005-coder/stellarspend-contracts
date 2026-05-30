@@ -229,16 +229,13 @@ impl RecurringPaymentContract {
             .get(&DataKey::UserIncomeStreams(recipient.clone()))
             .unwrap_or(Vec::new(&env));
         user_streams.push_back(count);
-        env.storage()
-            .instance()
-            .set(&DataKey::UserIncomeStreams(recipient.clone()), &user_streams);
+        env.storage().instance().set(
+            &DataKey::UserIncomeStreams(recipient.clone()),
+            &user_streams,
+        );
 
         env.events().publish(
-            (
-                symbol_short!("income"),
-                symbol_short!("created"),
-                count,
-            ),
+            (symbol_short!("income"), symbol_short!("created"), count),
             (recipient, source, amount),
         );
 

@@ -19,7 +19,7 @@ pub const MAX_PAST_THRESHOLD: u64 = 600;
 
 /// Validates that a transaction timestamp falls within an acceptable window
 /// compared to the current ledger timestamp.
-/// 
+///
 /// Prevents replay attacks and inconsistent ordering.
 pub fn validate_transaction_timestamp(
     env: &Env,

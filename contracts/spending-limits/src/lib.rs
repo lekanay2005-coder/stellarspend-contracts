@@ -28,13 +28,13 @@ use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Vec};
 
 pub use crate::types::{
     BatchLimitMetrics, BatchLimitResult, DataKey, ErrorCode, LimitEvents, LimitUpdateResult,
-    SpendingLimit, SpendingLimitRequest, LimitsConfig, MAX_BATCH_SIZE,
+    LimitsConfig, SpendingLimit, SpendingLimitRequest, MAX_BATCH_SIZE,
 };
 use crate::validation::validate_limit_request;
 
 // Add cross-contract imports for whitelist functionality
-use soroban_sdk::{Bytes, Symbol};
 use crate::cross_contract::DataKey as CrossContractDataKey;
+use soroban_sdk::{Bytes, Symbol};
 
 /// Error codes for the spending limits contract.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -89,7 +89,9 @@ impl SpendingLimitsContract {
             total_limits_updated: 0,
             total_batches_processed: 0,
         };
-        env.storage().instance().set(&DataKey::LimitsConfig, &config);
+        env.storage()
+            .instance()
+            .set(&DataKey::LimitsConfig, &config);
     }
 
     /// Updates monthly spending limits for multiple users in a batch.

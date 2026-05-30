@@ -174,13 +174,7 @@ impl LimitEvents {
         );
     }
 
-    pub fn batch_completed(
-        env: &Env,
-        batch_id: u64,
-        success: u32,
-        failed: u32,
-        total: i128,
-    ) {
+    pub fn batch_completed(env: &Env, batch_id: u64, success: u32, failed: u32, total: i128) {
         env.events().publish(
             (
                 Symbol::new(env, "limit"),

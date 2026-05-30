@@ -54,8 +54,8 @@ pub fn validate_amount(amount: i128) -> Result<(), ValidationError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use soroban_sdk::{testutils::Address as _, Address, Env, Vec};
     use crate::TransferRequest;
+    use soroban_sdk::{testutils::Address as _, Address, Env, Vec};
 
     #[test]
     fn test_validate_amount_negative() {

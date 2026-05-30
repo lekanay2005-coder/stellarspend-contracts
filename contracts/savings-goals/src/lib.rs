@@ -32,7 +32,9 @@ pub use crate::types::{
     ErrorCode, GoalEvents, GoalResult, MilestoneAchievement, MilestoneAchievementRequest,
     MilestoneResult, SavingsGoal, SavingsGoalProgress, SavingsGoalRequest, MAX_BATCH_SIZE,
 };
-use crate::validation::{validate_goal_name_unique, validate_goal_request, validate_milestone_request};
+use crate::validation::{
+    validate_goal_name_unique, validate_goal_request, validate_milestone_request,
+};
 
 /// Error codes for the savings goals contract.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -328,7 +330,9 @@ impl SavingsGoalsContract {
             match validate_goal_request(&env, &request) {
                 Ok(()) => {
                     // Check for duplicate goal name for this user
-                    if let Err(error_code) = validate_goal_name_unique(&env, &request.user, &request.goal_name) {
+                    if let Err(error_code) =
+                        validate_goal_name_unique(&env, &request.user, &request.goal_name)
+                    {
                         failed_count += 1;
                         GoalEvents::goal_creation_failed(&env, batch_id, &request.user, error_code);
                         results.push_back(GoalResult::Failure(request.user.clone(), error_code));
@@ -372,9 +376,10 @@ impl SavingsGoalsContract {
                         .persistent()
                         .set(&DataKey::Goal(goal_id_counter), &goal);
                     // Store name-to-id mapping for duplicate detection
-                    env.storage()
-                        .persistent()
-                        .set(&DataKey::GoalByName(request.user.clone(), request.goal_name.clone()), &goal_id_counter);
+                    env.storage().persistent().set(
+                        &DataKey::GoalByName(request.user.clone(), request.goal_name.clone()),
+                        &goal_id_counter,
+                    );
                     // Emit milestone events for initial contribution
                     Self::check_and_emit_milestones(&env, goal_id_counter);
 
@@ -500,10 +505,7 @@ impl SavingsGoalsContract {
             panic_with_error!(&env, SavingsGoalError::GoalNotActive);
         }
 
-        goal.current_amount = goal
-            .current_amount
-            .checked_add(amount)
-            .unwrap_or(i128::MAX);
+        goal.current_amount = goal.current_amount.checked_add(amount).unwrap_or(i128::MAX);
         goal.is_complete = goal.current_amount >= goal.target_amount;
 
         env.storage()
@@ -599,7 +601,9 @@ impl SavingsGoalsContract {
         let is_complete = goal.current_amount >= goal.target_amount;
         if goal.is_complete != is_complete {
             goal.is_complete = is_complete;
-            env.storage().persistent().set(&DataKey::Goal(goal_id), &goal);
+            env.storage()
+                .persistent()
+                .set(&DataKey::Goal(goal_id), &goal);
         }
         for &milestone in milestones.iter() {
             if progress >= milestone && !triggered.contains(&milestone) {
@@ -635,9 +639,7 @@ impl SavingsGoalsContract {
             .storage()
             .persistent()
             .get(&DataKey::Goal(goal_id))
-            .unwrap_or_else(|| {
-                panic_with_error!(&env, SavingsGoalError::InvalidBatch)
-            });
+            .unwrap_or_else(|| panic_with_error!(&env, SavingsGoalError::InvalidBatch));
 
         // Verify caller is the goal owner
         if goal.user != caller {
@@ -681,13 +683,7 @@ impl SavingsGoalsContract {
         Self::check_and_emit_milestones(&env, goal_id);
 
         // Emit withdrawal event
-        GoalEvents::partial_withdrawal(
-            &env,
-            goal_id,
-            &caller,
-            amount,
-            goal.current_amount,
-        );
+        GoalEvents::partial_withdrawal(&env, goal_id, &caller, amount, goal.current_amount);
     }
 
     /// Updates the name of an existing savings goal.
@@ -706,9 +702,7 @@ impl SavingsGoalsContract {
             .storage()
             .persistent()
             .get(&DataKey::Goal(goal_id))
-            .unwrap_or_else(|| {
-                panic_with_error!(&env, SavingsGoalError::InvalidBatch)
-            });
+            .unwrap_or_else(|| panic_with_error!(&env, SavingsGoalError::InvalidBatch));
 
         // Verify caller is the goal owner
         if goal.user != caller {
@@ -748,24 +742,27 @@ impl SavingsGoalsContract {
     /// # Returns
     /// * `Option<SavingsGoalProgress>` - Progress summary if goal exists
     pub fn get_goal_progress(env: Env, goal_id: u64) -> Option<SavingsGoalProgress> {
-        env.storage().persistent().get(&DataKey::Goal(goal_id)).map(|goal: SavingsGoal| {
-            let mut progress_percentage = if goal.target_amount > 0 {
-                (goal.current_amount * 100 / goal.target_amount) as u32
-            } else {
-                0
-            };
-            if progress_percentage > 100 {
-                progress_percentage = 100;
-            }
-            let is_complete = goal.current_amount >= goal.target_amount;
-            SavingsGoalProgress {
-                goal_id: goal.goal_id,
-                current_amount: goal.current_amount,
-                target_amount: goal.target_amount,
-                progress_percentage,
-                is_complete,
-            }
-        })
+        env.storage()
+            .persistent()
+            .get(&DataKey::Goal(goal_id))
+            .map(|goal: SavingsGoal| {
+                let mut progress_percentage = if goal.target_amount > 0 {
+                    (goal.current_amount * 100 / goal.target_amount) as u32
+                } else {
+                    0
+                };
+                if progress_percentage > 100 {
+                    progress_percentage = 100;
+                }
+                let is_complete = goal.current_amount >= goal.target_amount;
+                SavingsGoalProgress {
+                    goal_id: goal.goal_id,
+                    current_amount: goal.current_amount,
+                    target_amount: goal.target_amount,
+                    progress_percentage,
+                    is_complete,
+                }
+            })
     }
 
     /// Retrieves all goal IDs for a specific user.

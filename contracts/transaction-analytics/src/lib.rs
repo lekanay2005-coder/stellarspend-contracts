@@ -989,11 +989,7 @@ impl TransactionAnalyticsContract {
 
         // Emit operation fee updated event
         crate::types::AnalyticsEvents::operation_fee_updated(
-            &env,
-            &admin,
-            &operation,
-            previous,
-            new_config,
+            &env, &admin, &operation, previous, new_config,
         );
     }
 

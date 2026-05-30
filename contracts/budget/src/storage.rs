@@ -99,9 +99,7 @@ pub fn next_transfer_id(env: &Env) -> u64 {
         .get(&DataKey::TransferCounter)
         .unwrap_or(0)
         + 1;
-    env.storage()
-        .instance()
-        .set(&DataKey::TransferCounter, &id);
+    env.storage().instance().set(&DataKey::TransferCounter, &id);
     id
 }
 

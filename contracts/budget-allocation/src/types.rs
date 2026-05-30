@@ -66,8 +66,8 @@ pub struct BudgetAllocationSummary {
 pub enum DataKey {
     Admin,
     Budget(Address),
-    BudgetCategories(Address), // User's budget categories
-    TotalAllocated,            // Track global stats if needed
+    BudgetCategories(Address),    // User's budget categories
+    TotalAllocated,               // Track global stats if needed
     BudgetSnapshot(u64, Address), // Snapshot of budget state at timestamp
     SnapshotTimestamps(Vec<u64>), // List of all snapshot timestamps
 }

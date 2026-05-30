@@ -10,7 +10,11 @@ use crate::types::{
 /// Checks whether the user already has a goal with the same name.
 /// Returns an error code if a duplicate is found.
 pub fn validate_goal_name_unique(env: &Env, user: &Address, goal_name: &Symbol) -> Result<(), u32> {
-    if env.storage().persistent().has(&DataKey::GoalByName(user.clone(), goal_name.clone())) {
+    if env
+        .storage()
+        .persistent()
+        .has(&DataKey::GoalByName(user.clone(), goal_name.clone()))
+    {
         return Err(ErrorCode::DUPLICATE_GOAL_NAME);
     }
     Ok(())

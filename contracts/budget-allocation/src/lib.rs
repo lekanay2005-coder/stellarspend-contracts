@@ -254,7 +254,7 @@ impl BudgetAllocationContract {
             usage_percentage: 0,
         })
     }
-    
+
     /// Creates a snapshot of the current budget state for a user.
     /// Snapshots are stored with timestamps for historical tracking.
     pub fn create_budget_snapshot(env: Env, user: Address) {
@@ -263,13 +263,13 @@ impl BudgetAllocationContract {
             .storage()
             .persistent()
             .get(&DataKey::Budget(user.clone()));
-            
+
         if let Some(record) = budget_record {
             // Store the snapshot
             env.storage()
                 .persistent()
                 .set(&DataKey::BudgetSnapshot(now, user.clone()), &record);
-                
+
             // Update timestamp list
             let mut timestamps: Vec<u64> = env
                 .storage()
@@ -282,14 +282,14 @@ impl BudgetAllocationContract {
                 .set(&DataKey::SnapshotTimestamps, &timestamps);
         }
     }
-    
+
     /// Retrieves a budget snapshot for a specific user at a specific timestamp.
     pub fn get_budget_snapshot(env: Env, user: Address, timestamp: u64) -> Option<BudgetRecord> {
         env.storage()
             .persistent()
             .get(&DataKey::BudgetSnapshot(timestamp, user))
     }
-    
+
     /// Retrieves all budget snapshots for a specific user.
     pub fn get_all_budget_snapshots(env: Env, user: Address) -> Vec<(u64, BudgetRecord)> {
         let mut snapshots = Vec::new(&env);
@@ -298,61 +298,63 @@ impl BudgetAllocationContract {
             .persistent()
             .get(&DataKey::SnapshotTimestamps)
             .unwrap_or_else(|| Vec::new(&env));
-            
+
         for ts in timestamps.iter() {
-            if let Some(snapshot) = env.storage().persistent().get(&DataKey::BudgetSnapshot(ts, user.clone())) {
+            if let Some(snapshot) = env
+                .storage()
+                .persistent()
+                .get(&DataKey::BudgetSnapshot(ts, user.clone()))
+            {
                 snapshots.push_back((ts, snapshot));
             }
         }
         snapshots
     }
-    
+
     /// Resets the monthly spending counter for a user's budget.
     /// This is called automatically when the monthly cycle completes.
     /// Preserves historical usage data while resetting current spending.
     pub fn reset_monthly_budget(env: Env, user: Address) {
         let now = env.ledger().timestamp();
-            
+
         // Get current budget record
         let mut budget_record: Option<BudgetRecord> = env
             .storage()
             .persistent()
             .get(&DataKey::Budget(user.clone()));
-            
+
         if let Some(mut record) = budget_record {
             // Reset only the spent amount, preserve the budget limit
             record.spent = 0;
             record.last_updated = now;
-                
+
             // Store updated record
             env.storage()
                 .persistent()
                 .set(&DataKey::Budget(user), &record);
         }
     }
-    
+
     /// Checks if monthly budget reset is needed based on timestamp.
     /// Returns true if it's been at least 30 days since last reset.
     pub fn needs_monthly_reset(env: Env, user: Address) -> bool {
         let now = env.ledger().timestamp();
-            
+
         // Get current budget record
-        let budget_record: Option<BudgetRecord> = env
-            .storage()
-            .persistent()
-            .get(&DataKey::Budget(user));
-            
+        let budget_record: Option<BudgetRecord> =
+            env.storage().persistent().get(&DataKey::Budget(user));
+
         if let Some(record) = budget_record {
             // Calculate 30 days in seconds
             const THIRTY_DAYS_IN_SECONDS: u64 = 30 * 24 * 60 * 60;
-                
+
             // Check if it's been at least 30 days since last update
             return now >= record.last_updated + THIRTY_DAYS_IN_SECONDS;
         }
-            
+
         false
     }
-    
+
     /// Returns the admin address
     pub fn get_admin(env: Env) -> Address {
         env.storage()

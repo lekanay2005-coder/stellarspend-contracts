@@ -1,8 +1,11 @@
+use crate::{
+    Transaction, TransactionError, TransactionStatus, TransactionsContract,
+    TransactionsContractClient,
+};
 use soroban_sdk::{
     testutils::{Address as _, Ledger},
-    Address, Env, Symbol, String, Vec,
+    Address, Env, String, Symbol, Vec,
 };
-use crate::{TransactionsContract, TransactionsContractClient, TransactionError, Transaction, TransactionStatus};
 
 #[test]
 fn test_initialize_and_get_admin() {
@@ -48,7 +51,9 @@ fn test_create_transaction() {
     let tx_type = Symbol::new(&env, "expense");
     let is_public = false;
 
-    let tx_id = client.create_transaction(&from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public);
+    let tx_id = client.create_transaction(
+        &from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public,
+    );
 
     let transaction = client.get_transaction(&tx_id).unwrap();
     assert_eq!(transaction.id, tx_id);
@@ -58,8 +63,14 @@ fn test_create_transaction() {
     assert_eq!(transaction.note, note);
     assert_eq!(transaction.memo, memo);
     assert_eq!(transaction.tags.len(), 2);
-    assert_eq!(transaction.tags.get(0), Some(String::from_str(&env, "groceries")));
-    assert_eq!(transaction.tags.get(1), Some(String::from_str(&env, "monthly")));
+    assert_eq!(
+        transaction.tags.get(0),
+        Some(String::from_str(&env, "groceries"))
+    );
+    assert_eq!(
+        transaction.tags.get(1),
+        Some(String::from_str(&env, "monthly"))
+    );
     assert!(transaction.timestamp > 0);
     assert_eq!(transaction.status, TransactionStatus::Completed);
     assert_eq!(transaction.tx_type, tx_type);
@@ -85,7 +96,16 @@ fn test_create_transaction_invalid_amount_zero() {
     let tx_type = Symbol::new(&env, "transfer");
     let is_public = false;
 
-    client.create_transaction(&from, &to, &zero_amount, &note, &memo, &tags, &tx_type, &is_public);
+    client.create_transaction(
+        &from,
+        &to,
+        &zero_amount,
+        &note,
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
 }
 
 #[test]
@@ -107,7 +127,16 @@ fn test_create_transaction_invalid_amount_negative() {
     let tx_type = Symbol::new(&env, "transfer");
     let is_public = false;
 
-    client.create_transaction(&from, &to, &negative_amount, &note, &memo, &tags, &tx_type, &is_public);
+    client.create_transaction(
+        &from,
+        &to,
+        &negative_amount,
+        &note,
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
 }
 
 #[test]
@@ -129,7 +158,16 @@ fn test_update_transaction_note() {
     let tx_type = Symbol::new(&env, "transfer");
     let is_public = false;
 
-    let tx_id = client.create_transaction(&from, &to, &amount, &original_note, &memo, &tags, &tx_type, &is_public);
+    let tx_id = client.create_transaction(
+        &from,
+        &to,
+        &amount,
+        &original_note,
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
 
     let transaction = client.get_transaction(&tx_id).unwrap();
     assert_eq!(transaction.note, original_note);
@@ -160,7 +198,9 @@ fn test_update_transaction_amount() {
     let tx_type = Symbol::new(&env, "transfer");
     let is_public = false;
 
-    let tx_id = client.create_transaction(&from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public);
+    let tx_id = client.create_transaction(
+        &from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public,
+    );
 
     let success = client.update_transaction_amount(&tx_id, &from, &updated_amount);
     assert!(success);
@@ -213,7 +253,9 @@ fn test_get_transaction_timestamp() {
     let tx_type = Symbol::new(&env, "transfer");
     let is_public = false;
 
-    let tx_id = client.create_transaction(&from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public);
+    let tx_id = client.create_transaction(
+        &from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public,
+    );
 
     let timestamp = client.get_transaction_timestamp(&tx_id);
     assert!(timestamp.is_some());
@@ -241,9 +283,36 @@ fn test_get_user_transactions() {
     let tx_type = Symbol::new(&env, "transfer");
     let is_public = false;
 
-    client.create_transaction(&user1, &recipient, &1000, &String::from_str(&env, "User1 transaction 1"), &memo, &tags, &tx_type, &is_public);
-    client.create_transaction(&user1, &recipient, &2000, &String::from_str(&env, "User1 transaction 2"), &memo, &tags, &tx_type, &is_public);
-    client.create_transaction(&user2, &recipient, &3000, &String::from_str(&env, "User2 transaction"), &memo, &tags, &tx_type, &is_public);
+    client.create_transaction(
+        &user1,
+        &recipient,
+        &1000,
+        &String::from_str(&env, "User1 transaction 1"),
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
+    client.create_transaction(
+        &user1,
+        &recipient,
+        &2000,
+        &String::from_str(&env, "User1 transaction 2"),
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
+    client.create_transaction(
+        &user2,
+        &recipient,
+        &3000,
+        &String::from_str(&env, "User2 transaction"),
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
 
     let user1_txs = client.get_user_transactions(&user1);
     assert_eq!(user1_txs.len(), 2);
@@ -272,8 +341,26 @@ fn test_clear_user_transactions() {
     let tx_type = Symbol::new(&env, "transfer");
     let is_public = false;
 
-    let tx1_id = client.create_transaction(&user, &recipient, &1000, &String::from_str(&env, "Transaction 1"), &memo, &tags, &tx_type, &is_public);
-    let tx2_id = client.create_transaction(&user, &recipient, &2000, &String::from_str(&env, "Transaction 2"), &memo, &tags, &tx_type, &is_public);
+    let tx1_id = client.create_transaction(
+        &user,
+        &recipient,
+        &1000,
+        &String::from_str(&env, "Transaction 1"),
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
+    let tx2_id = client.create_transaction(
+        &user,
+        &recipient,
+        &2000,
+        &String::from_str(&env, "Transaction 2"),
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
 
     let user_txs = client.get_user_transactions(&user);
     assert_eq!(user_txs.len(), 2);
@@ -306,9 +393,36 @@ fn test_transaction_counter_increments() {
     let tx_type = Symbol::new(&env, "transfer");
     let is_public = false;
 
-    let tx1_id = client.create_transaction(&from, &to, &1000, &String::from_str(&env, "Transaction 1"), &memo, &tags, &tx_type, &is_public);
-    let tx2_id = client.create_transaction(&from, &to, &2000, &String::from_str(&env, "Transaction 2"), &memo, &tags, &tx_type, &is_public);
-    let tx3_id = client.create_transaction(&from, &to, &3000, &String::from_str(&env, "Transaction 3"), &memo, &tags, &tx_type, &is_public);
+    let tx1_id = client.create_transaction(
+        &from,
+        &to,
+        &1000,
+        &String::from_str(&env, "Transaction 1"),
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
+    let tx2_id = client.create_transaction(
+        &from,
+        &to,
+        &2000,
+        &String::from_str(&env, "Transaction 2"),
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
+    let tx3_id = client.create_transaction(
+        &from,
+        &to,
+        &3000,
+        &String::from_str(&env, "Transaction 3"),
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
 
     assert_ne!(tx1_id, tx2_id);
     assert_ne!(tx2_id, tx3_id);
@@ -337,7 +451,9 @@ fn test_transaction_exists() {
     let tx_type = Symbol::new(&env, "transfer");
     let is_public = false;
 
-    let tx_id = client.create_transaction(&from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public);
+    let tx_id = client.create_transaction(
+        &from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public,
+    );
 
     assert!(client.transaction_exists(&tx_id));
 
@@ -376,7 +492,10 @@ fn test_create_transaction_stores_creation_timestamp() {
 
     let tx = client.get_transaction(&tx_id).unwrap();
     assert_eq!(tx.timestamp, 1_700_000_123);
-    assert_eq!(client.get_transaction_timestamp(&tx_id), Some(1_700_000_123));
+    assert_eq!(
+        client.get_transaction_timestamp(&tx_id),
+        Some(1_700_000_123)
+    );
 }
 
 #[test]
@@ -397,7 +516,9 @@ fn test_get_transaction_memo() {
     let tx_type = Symbol::new(&env, "transfer");
     let is_public = false;
 
-    let tx_id = client.create_transaction(&from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public);
+    let tx_id = client.create_transaction(
+        &from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public,
+    );
 
     // Test get_transaction_memo function
     let retrieved_memo = client.get_transaction_memo(&tx_id).unwrap();
@@ -414,7 +535,7 @@ fn test_get_transaction_memo_nonexistent() {
     client.initialize(&admin);
 
     let fake_id = Symbol::new(&env, "not_here");
-    
+
     // Test get_transaction_memo for non-existent transaction
     let memo = client.get_transaction_memo(&fake_id);
     assert!(memo.is_none());
@@ -438,7 +559,9 @@ fn test_delete_transaction_admin_can_remove_record() {
     let tx_type = Symbol::new(&env, "transfer");
     let is_public = false;
 
-    let tx_id = client.create_transaction(&from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public);
+    let tx_id = client.create_transaction(
+        &from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public,
+    );
     assert!(client.transaction_exists(&tx_id));
 
     let success = client.delete_transaction(&admin, &tx_id);
@@ -467,7 +590,9 @@ fn test_delete_transaction_rejects_non_admin() {
     let tx_type = Symbol::new(&env, "transfer");
     let is_public = false;
 
-    let tx_id = client.create_transaction(&from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public);
+    let tx_id = client.create_transaction(
+        &from, &to, &amount, &note, &memo, &tags, &tx_type, &is_public,
+    );
 
     let caller = Address::generate(&env);
     client.delete_transaction(&caller, &tx_id);
@@ -491,9 +616,36 @@ fn test_get_all_transactions() {
     let is_public = false;
 
     // Create some transactions
-    let tx1_id = client.create_transaction(&user1, &recipient, &1000, &String::from_str(&env, "Transaction 1"), &memo, &tags, &tx_type, &is_public);
-    let tx2_id = client.create_transaction(&user2, &recipient, &2000, &String::from_str(&env, "Transaction 2"), &memo, &tags, &tx_type, &is_public);
-    let tx3_id = client.create_transaction(&user1, &recipient, &3000, &String::from_str(&env, "Transaction 3"), &memo, &tags, &tx_type, &is_public);
+    let tx1_id = client.create_transaction(
+        &user1,
+        &recipient,
+        &1000,
+        &String::from_str(&env, "Transaction 1"),
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
+    let tx2_id = client.create_transaction(
+        &user2,
+        &recipient,
+        &2000,
+        &String::from_str(&env, "Transaction 2"),
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
+    let tx3_id = client.create_transaction(
+        &user1,
+        &recipient,
+        &3000,
+        &String::from_str(&env, "Transaction 3"),
+        &memo,
+        &tags,
+        &tx_type,
+        &is_public,
+    );
 
     let all_txs = client.get_all_transactions();
     assert_eq!(all_txs.len(), 3);
@@ -562,7 +714,16 @@ fn test_get_transactions_paginated_offset_and_limit() {
     let is_public = false;
 
     for i in 1_i128..=10 {
-        client.create_transaction(&from, &to, &(i * 10), &note, &memo, &tags, &tx_type, &is_public);
+        client.create_transaction(
+            &from,
+            &to,
+            &(i * 10),
+            &note,
+            &memo,
+            &tags,
+            &tx_type,
+            &is_public,
+        );
     }
 
     // page 1: offset=0, limit=3 → first 3
@@ -670,9 +831,12 @@ fn test_get_user_transactions_filtered_by_tx_type() {
     let expense = Symbol::new(&env, "expense");
     let is_public = false;
 
-    let income_tx_1 = client.create_transaction(&user, &to, &100, &note, &memo, &tags, &income, &is_public);
-    let expense_tx = client.create_transaction(&user, &to, &50, &note, &memo, &tags, &expense, &is_public);
-    let income_tx_2 = client.create_transaction(&user, &to, &75, &note, &memo, &tags, &income, &is_public);
+    let income_tx_1 =
+        client.create_transaction(&user, &to, &100, &note, &memo, &tags, &income, &is_public);
+    let expense_tx =
+        client.create_transaction(&user, &to, &50, &note, &memo, &tags, &expense, &is_public);
+    let income_tx_2 =
+        client.create_transaction(&user, &to, &75, &note, &memo, &tags, &income, &is_public);
 
     let income_txs = client.get_user_transactions_filtered(&user, &income);
     assert_eq!(income_txs.len(), 2);
@@ -703,12 +867,14 @@ fn test_create_transaction_with_visibility_flag() {
     let tx_type = Symbol::new(&env, "income");
 
     // 1. Create a public transaction
-    let tx_public_id = client.create_transaction(&from, &to, &amount, &note, &memo, &tags, &tx_type, &true);
+    let tx_public_id =
+        client.create_transaction(&from, &to, &amount, &note, &memo, &tags, &tx_type, &true);
     let tx_public = client.get_transaction(&tx_public_id).unwrap();
     assert_eq!(tx_public.is_public, true);
 
     // 2. Create a private transaction
-    let tx_private_id = client.create_transaction(&from, &to, &amount, &note, &memo, &tags, &tx_type, &false);
+    let tx_private_id =
+        client.create_transaction(&from, &to, &amount, &note, &memo, &tags, &tx_type, &false);
     let tx_private = client.get_transaction(&tx_private_id).unwrap();
     assert_eq!(tx_private.is_public, false);
 }

@@ -23,8 +23,8 @@ pub use storage::{
 use storage::{
     clear_budget_freeze, get_budget_freeze, get_category_available, get_transfer,
     get_user_budget as load_user_budget, get_user_transfers, increment_suspicious_count,
-    is_budget_frozen, next_transfer_id, record_spend_timestamp, record_transfer,
-    set_budget_freeze, set_user_budget,
+    is_budget_frozen, next_transfer_id, record_spend_timestamp, record_transfer, set_budget_freeze,
+    set_user_budget,
 };
 
 /// Deletion cooldown period in seconds (24 hours).
@@ -78,7 +78,11 @@ pub struct BudgetEvents;
 impl BudgetEvents {
     pub fn category_budget_set(env: &Env, user: &Address, category: &Symbol, limit: i128) {
         env.events().publish(
-            (symbol_short!("budget"), symbol_short!("cat_set"), category.clone()),
+            (
+                symbol_short!("budget"),
+                symbol_short!("cat_set"),
+                category.clone(),
+            ),
             (user.clone(), limit),
         );
     }
@@ -92,7 +96,11 @@ impl BudgetEvents {
         transfer_id: u64,
     ) {
         env.events().publish(
-            (symbol_short!("budget"), symbol_short!("transfer"), transfer_id),
+            (
+                symbol_short!("budget"),
+                symbol_short!("transfer"),
+                transfer_id,
+            ),
             (user.clone(), from.clone(), to.clone(), amount),
         );
     }
@@ -105,7 +113,11 @@ impl BudgetEvents {
         remaining: i128,
     ) {
         env.events().publish(
-            (symbol_short!("budget"), symbol_short!("spent"), category.clone()),
+            (
+                symbol_short!("budget"),
+                symbol_short!("spent"),
+                category.clone(),
+            ),
             (user.clone(), amount, remaining),
         );
     }
@@ -136,11 +148,15 @@ impl BudgetContract {
             panic!("Already initialized");
         }
         env.storage().instance().set(&DataKey::Admin, &admin);
-        env.storage().instance().set(&DataKey::TransferCounter, &0u64);
+        env.storage()
+            .instance()
+            .set(&DataKey::TransferCounter, &0u64);
         env.storage()
             .instance()
             .set(&DataKey::SuspiciousActivityCount, &0u64);
-        env.storage().instance().set(&DataKey::TotalAllocated, &0i128);
+        env.storage()
+            .instance()
+            .set(&DataKey::TotalAllocated, &0i128);
     }
 
     /// Updates a single user's budget with optional multi-asset support.
@@ -446,10 +462,8 @@ impl BudgetContract {
             .persistent()
             .remove(&DataKey::PendingDeletion(user.clone()));
 
-        env.events().publish(
-            (symbol_short!("budget"), symbol_short!("del_canc")),
-            user,
-        );
+        env.events()
+            .publish((symbol_short!("budget"), symbol_short!("del_canc")), user);
     }
 
     /// Executes a scheduled budget deletion after the cooldown period has elapsed.
@@ -484,10 +498,7 @@ impl BudgetContract {
             if let Some(record) = env
                 .storage()
                 .persistent()
-                .get::<DataKey, BudgetRecord>(&DataKey::BudgetAsset(
-                    user.clone(),
-                    asset.clone(),
-                ))
+                .get::<DataKey, BudgetRecord>(&DataKey::BudgetAsset(user.clone(), asset.clone()))
             {
                 old_amount = old_amount.checked_add(record.amount).unwrap_or(old_amount);
             }

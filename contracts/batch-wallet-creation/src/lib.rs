@@ -10,7 +10,7 @@ pub use crate::types::{
     BatchCreateResult, BatchRecoveryResult, DataKey, Wallet, WalletCreateRequest,
     WalletCreateResult, WalletEvents, WalletRecoveryRequest, WalletRecoveryResult, MAX_BATCH_SIZE,
 };
-use crate::validation::{validate_address, wallet_exists, check_batch_duplicates};
+use crate::validation::{check_batch_duplicates, validate_address, wallet_exists};
 
 /// Error codes for the batch wallet creation contract.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -77,7 +77,10 @@ impl BatchWalletContract {
         if let Err(duplicate_address) = check_batch_duplicates(&requests) {
             // Emit event or log for debugging purposes
             env.events().publish(
-                (soroban_sdk::symbol_short!("wallet"), soroban_sdk::symbol_short!("duplicate")),
+                (
+                    soroban_sdk::symbol_short!("wallet"),
+                    soroban_sdk::symbol_short!("duplicate"),
+                ),
                 duplicate_address,
             );
             panic_with_error!(&env, BatchWalletError::DuplicateWallet);

@@ -45,6 +45,9 @@ mod tests {
 
     #[test]
     fn test_fee_too_high() {
-        assert_eq!(validate_fee(200, 10, 100), Err(FeeValidationError::FeeTooHigh));
+        assert_eq!(
+            validate_fee(200, 10, 100),
+            Err(FeeValidationError::FeeTooHigh)
+        );
     }
 }

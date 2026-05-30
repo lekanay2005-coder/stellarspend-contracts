@@ -14,7 +14,9 @@
 
 mod validation;
 
-use soroban_sdk::{contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Env, Symbol, Vec};
+use soroban_sdk::{
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Env, Symbol, Vec,
+};
 
 use crate::validation::validate_category_name;
 
@@ -76,12 +78,20 @@ pub struct CategoryEvents;
 impl CategoryEvents {
     pub fn category_created(env: &Env, category: &SpendingCategory) {
         let topics = (symbol_short!("category"), symbol_short!("created"));
-        env.events().publish(topics, (category.category_id, category.user.clone(), category.name.clone()));
+        env.events().publish(
+            topics,
+            (
+                category.category_id,
+                category.user.clone(),
+                category.name.clone(),
+            ),
+        );
     }
 
     pub fn category_renamed(env: &Env, category_id: u64, old_name: Symbol, new_name: Symbol) {
         let topics = (symbol_short!("category"), symbol_short!("renamed"));
-        env.events().publish(topics, (category_id, old_name, new_name));
+        env.events()
+            .publish(topics, (category_id, old_name, new_name));
     }
 }
 
@@ -97,8 +107,12 @@ impl SpendingCategoriesContract {
         }
 
         env.storage().instance().set(&DataKey::Admin, &admin);
-        env.storage().instance().set(&DataKey::LastCategoryId, &0u64);
-        env.storage().instance().set(&DataKey::TotalCategories, &0u64);
+        env.storage()
+            .instance()
+            .set(&DataKey::LastCategoryId, &0u64);
+        env.storage()
+            .instance()
+            .set(&DataKey::TotalCategories, &0u64);
     }
 
     /// Creates a new spending category for a user.
@@ -126,7 +140,11 @@ impl SpendingCategoriesContract {
         }
 
         // Check for duplicate name for this user
-        if env.storage().persistent().has(&DataKey::CategoryByName(user.clone(), name.clone())) {
+        if env
+            .storage()
+            .persistent()
+            .has(&DataKey::CategoryByName(user.clone(), name.clone()))
+        {
             panic_with_error!(&env, CategoryError::DuplicateName);
         }
 
@@ -226,18 +244,18 @@ impl SpendingCategoriesContract {
 
         // Check for duplicate name (excluding self)
         if old_name != new_name {
-            if env
-                .storage()
-                .persistent()
-                .has(&DataKey::CategoryByName(category.user.clone(), new_name.clone()))
-            {
+            if env.storage().persistent().has(&DataKey::CategoryByName(
+                category.user.clone(),
+                new_name.clone(),
+            )) {
                 panic_with_error!(&env, CategoryError::DuplicateName);
             }
 
             // Remove old name mapping
-            env.storage()
-                .persistent()
-                .remove(&DataKey::CategoryByName(category.user.clone(), old_name.clone()));
+            env.storage().persistent().remove(&DataKey::CategoryByName(
+                category.user.clone(),
+                old_name.clone(),
+            ));
 
             // Add new name mapping
             env.storage().persistent().set(
@@ -262,7 +280,9 @@ impl SpendingCategoriesContract {
 
     /// Retrieves a category by ID.
     pub fn get_category(env: Env, category_id: u64) -> Option<SpendingCategory> {
-        env.storage().persistent().get(&DataKey::Category(category_id))
+        env.storage()
+            .persistent()
+            .get(&DataKey::Category(category_id))
     }
 
     /// Retrieves all category IDs for a user.

@@ -576,8 +576,10 @@ fn test_batch_create_wallets_duplicate_event_emitted() {
     for (_, topics, _) in events.iter() {
         let topic_vec = topics.clone();
         if topic_vec.len() >= 2 {
-            let topic1: soroban_sdk::Symbol = topic_vec.get(0).unwrap().into_val(&env).try_into().ok();
-            let topic2: soroban_sdk::Symbol = topic_vec.get(1).unwrap().into_val(&env).try_into().ok();
+            let topic1: soroban_sdk::Symbol =
+                topic_vec.get(0).unwrap().into_val(&env).try_into().ok();
+            let topic2: soroban_sdk::Symbol =
+                topic_vec.get(1).unwrap().into_val(&env).try_into().ok();
             if topic1 == Some(soroban_sdk::Symbol::new(&env, "wallet"))
                 && topic2 == Some(soroban_sdk::Symbol::new(&env, "duplicate"))
             {
@@ -630,4 +632,3 @@ fn test_batch_create_wallets_duplicate_error_identifies_entry() {
         _ => panic!("Expected success for new wallet"),
     }
 }
-
