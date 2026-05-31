@@ -9,7 +9,7 @@ use soroban_sdk::{
     Address, Env, Vec,
 };
 
-use crate::types::{ErrorCode, LimitUpdateResult, SpendingLimitRequest};
+use crate::types::{ErrorCode, LimitStrategy, LimitUpdateResult, SpendingLimitRequest};
 
 /// Helper function to create a test environment with initialized contract.
 fn setup_test_contract() -> (Env, Address, SpendingLimitsContractClient<'static>) {
@@ -32,6 +32,7 @@ fn create_valid_request(env: &Env, user: &Address, limit: i128) -> SpendingLimit
         monthly_limit: limit,
         reset_window_seconds: 86_400,
         category: Some(symbol_short!("general")),
+        strategy: LimitStrategy::Static,
     }
 }
 
@@ -424,6 +425,7 @@ fn test_enforce_spending_limit_allows_within_daily_and_monthly() {
     let user = Address::generate(&env);
 
     // Configure a monthly limit of 300 units; derived daily limit is 10 units.
+    client.whitelist_destination(&admin, &user);
     let mut requests: Vec<SpendingLimitRequest> = Vec::new(&env);
     requests.push_back(create_valid_request(&env, &user, 300));
     client.batch_update_spending_limits(&admin, &requests);
@@ -442,6 +444,7 @@ fn test_enforce_spending_limit_resets_after_window() {
     let user = Address::generate(&env);
 
     // Configure a monthly limit with a 24-hour reset window.
+    client.whitelist_destination(&admin, &user);
     let mut requests: Vec<SpendingLimitRequest> = Vec::new(&env);
     let mut request = create_valid_request(&env, &user, 300);
     request.reset_window_seconds = 86_400;
@@ -464,6 +467,7 @@ fn test_enforce_spending_limit_daily_exceeded() {
     let user = Address::generate(&env);
 
     // Monthly 300 -> daily 10
+    client.whitelist_destination(&admin, &user);
     let mut requests: Vec<SpendingLimitRequest> = Vec::new(&env);
     requests.push_back(create_valid_request(&env, &user, 300));
     let result = client.batch_update_spending_limits(&admin, &requests);
@@ -490,6 +494,7 @@ fn test_enforce_spending_limit_monthly_exceeded_over_multiple_days() {
     let user = Address::generate(&env);
 
     // Monthly 30, daily 1 (30 / 30) => 1 unit per day max, 30 units per month.
+    client.whitelist_destination(&admin, &user);
     let mut requests: Vec<SpendingLimitRequest> = Vec::new(&env);
     requests.push_back(create_valid_request(&env, &user, 30));
     let result = client.batch_update_spending_limits(&admin, &requests);
@@ -516,10 +521,34 @@ fn test_enforce_without_limit_does_not_block() {
     let (env, _admin, client) = setup_test_contract();
     let user = Address::generate(&env);
 
+    client.whitelist_destination(&client.get_admin(), &user);
     env.ledger().set_timestamp(10 * 86_400);
 
     // No limit configured for this user; enforce should be a no-op and not panic.
     client.enforce_spending_limit(&user, &1_000_000);
+}
+
+#[test]
+fn test_adaptive_strategy_increases_limit_near_usage_threshold() {
+    let (env, admin, client) = setup_test_contract();
+    let user = Address::generate(&env);
+
+    client.whitelist_destination(&admin, &user);
+
+    let mut requests: Vec<SpendingLimitRequest> = Vec::new(&env);
+    let mut request = create_valid_request(&env, &user, 1_000_000_000);
+    request.strategy = LimitStrategy::Adaptive;
+    requests.push_back(request);
+    client.batch_update_spending_limits(&admin, &requests);
+
+    env.ledger().set_timestamp(86_400);
+
+    // Spend 900M (90% of 1B) — should trigger a deterministic 10% limit increase.
+    client.enforce_spending_limit(&user, &900_000_000);
+
+    let limit = client.get_spending_limit(&user).unwrap();
+    assert_eq!(limit.monthly_limit, 1_100_000_000);
+    assert_eq!(limit.strategy, LimitStrategy::Adaptive);
 }
 
 #[test]

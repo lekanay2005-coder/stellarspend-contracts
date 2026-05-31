@@ -1042,3 +1042,48 @@ fn test_contribute_emits_milestone_events() {
     assert!(triggered.contains(&75));
     assert!(triggered.contains(&100));
 }
+
+#[test]
+fn test_clone_savings_goal() {
+    let (env, admin, client) = setup_test_contract();
+    let user = Address::generate(&env);
+
+    let mut requests: Vec<SavingsGoalRequest> = Vec::new(&env);
+    requests.push_back(SavingsGoalRequest {
+        user: user.clone(),
+        goal_name: Symbol::new(&env, "original"),
+        target_amount: 100_000_000,
+        deadline: env.ledger().sequence() as u64 + 1000,
+        initial_contribution: 50_000_000,
+        lock_duration_seconds: 3600,
+    });
+    client.batch_set_savings_goals(&admin, &requests);
+
+    let cloned_name = Symbol::new(&env, "cloned");
+    let cloned_id = client.clone_savings_goal(&user, &1, &cloned_name);
+
+    assert_eq!(cloned_id, 2);
+
+    let cloned_goal = client.get_goal(&cloned_id).unwrap();
+    assert_eq!(cloned_goal.goal_name, cloned_name);
+    assert_eq!(cloned_goal.target_amount, 100_000_000);
+    assert_eq!(cloned_goal.current_amount, 0); // Balance reset
+    assert_eq!(cloned_goal.user, user);
+    assert_eq!(cloned_goal.is_complete, false);
+    assert!(cloned_goal.unlock_at > cloned_goal.created_at); // Lock inherited
+}
+
+#[test]
+#[should_panic]
+fn test_clone_savings_goal_unauthorized() {
+    let (env, admin, client) = setup_test_contract();
+    let user1 = Address::generate(&env);
+    let user2 = Address::generate(&env);
+
+    let mut requests: Vec<SavingsGoalRequest> = Vec::new(&env);
+    requests.push_back(create_valid_request(&env, &user1, "original", 100_000_000));
+    client.batch_set_savings_goals(&admin, &requests);
+
+    let cloned_name = Symbol::new(&env, "cloned");
+    client.clone_savings_goal(&user2, &1, &cloned_name); // user2 tries to clone user1's goal
+}

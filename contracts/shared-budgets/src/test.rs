@@ -123,7 +123,7 @@ fn test_contribute_to_budget() {
 
     // Contribute to the budget
     let contribution_amount = 100_000_000; // 10 XLM
-    client.contribute_to_budget(&contributor, &budget_id, &contribution_amount);
+    client.contribute_to_budget(&contributor, &budget_id, &contribution_amount, &None);
 
     // Check that budget balance increased
     let budget_after = client.get_budget(&budget_id);
@@ -132,6 +132,27 @@ fn test_contribute_to_budget() {
 
     // Check that total contributions processed increased
     assert_eq!(client.get_total_contribs_processed(), 1);
+}
+
+#[test]
+fn test_contribution_with_memo() {
+    let (env, _admin, token, _token_client, client) = setup_test_env();
+
+    let creator = Address::generate(&env);
+    let contributor = Address::generate(&env);
+    let budget_name = Symbol::new(&env, "memo_budget");
+    let budget_id = client.create_budget(&creator, &budget_name, &Vec::new(&env), &token, &Vec::new(&env));
+
+    let amount = 100_000_000;
+    let memo = Some(Symbol::new(&env, "lunch_contribution"));
+    client.contribute_to_budget(&contributor, &budget_id, &amount, &memo);
+
+    let contribution_id = client.get_total_contribs_processed();
+    let contribution = client.get_contribution(&contribution_id);
+
+    assert_eq!(contribution.amount, amount);
+    assert_eq!(contribution.memo, memo);
+    assert_eq!(contribution.contributor, contributor);
 }
 
 #[test]
@@ -152,7 +173,7 @@ fn test_spend_from_budget() {
 
     // Contribute to budget first
     let contribution_amount = 100_000_000; // 10 XLM
-    client.contribute_to_budget(&member1, &budget_id, &contribution_amount);
+    client.contribute_to_budget(&member1, &budget_id, &contribution_amount, &None);
 
     // Spend from budget
     let expense_amount = 50_000_000; // 5 XLM
@@ -307,7 +328,7 @@ fn test_non_member_cannot_spend() {
 
     // Contribute to budget first
     let contribution_amount = 100_000_000; // 10 XLM
-    client.contribute_to_budget(&member1, &budget_id, &contribution_amount);
+    client.contribute_to_budget(&member1, &budget_id, &contribution_amount, &None);
 
     // Non-member tries to spend (should fail)
     let expense_amount = 50_000_000; // 5 XLM
@@ -323,4 +344,77 @@ fn test_unauthorized_admin_function() {
     let new_admin = Address::generate(&env);
 
     client.set_admin(&unauthorized_user, &new_admin);
+}
+
+#[test]
+fn test_transfer_budget_ownership() {
+    let (env, _admin, token, _token_client, client) = setup_test_env();
+
+    let creator = Address::generate(&env);
+    let new_owner = Address::generate(&env);
+    let member = Address::generate(&env);
+
+    let mut members: Vec<Address> = Vec::new(&env);
+    members.push_back(member.clone());
+
+    let budget_name = Symbol::new(&env, "transfer_budget");
+    let spending_rules: Vec<BudgetSpendingRule> = Vec::new(&env);
+    let budget_id =
+        client.create_budget(&creator, &budget_name, &members, &token, &spending_rules);
+
+    client.transfer_budget_ownership(&creator, &budget_id, &new_owner);
+
+    let budget = client.get_budget(&budget_id);
+    assert_eq!(budget.creator, new_owner);
+
+    let owner_role = client.get_member_role(&budget_id, &new_owner);
+    assert_eq!(owner_role, Symbol::new(&env, "OWNER"));
+
+    let previous_owner_role = client.get_member_role(&budget_id, &creator);
+    assert_eq!(previous_owner_role, Symbol::new(&env, "NONE"));
+}
+
+#[test]
+#[should_panic]
+fn test_previous_owner_cannot_manage_budget_after_transfer() {
+    let (env, _admin, token, _token_client, client) = setup_test_env();
+
+    let creator = Address::generate(&env);
+    let new_owner = Address::generate(&env);
+    let member = Address::generate(&env);
+    let added_member = Address::generate(&env);
+
+    let mut members: Vec<Address> = Vec::new(&env);
+    members.push_back(member.clone());
+
+    let budget_name = Symbol::new(&env, "post_transfer_budget");
+    let spending_rules: Vec<BudgetSpendingRule> = Vec::new(&env);
+    let budget_id =
+        client.create_budget(&creator, &budget_name, &members, &token, &spending_rules);
+
+    client.transfer_budget_ownership(&creator, &budget_id, &new_owner);
+
+    // Previous owner no longer has owner-level control.
+    client.add_member_to_budget(&creator, &budget_id, &added_member);
+}
+
+#[test]
+#[should_panic]
+fn test_unauthorized_budget_ownership_transfer() {
+    let (env, _admin, token, _token_client, client) = setup_test_env();
+
+    let creator = Address::generate(&env);
+    let impostor = Address::generate(&env);
+    let new_owner = Address::generate(&env);
+
+    let budget_name = Symbol::new(&env, "secure_budget");
+    let budget_id = client.create_budget(
+        &creator,
+        &budget_name,
+        &Vec::new(&env),
+        &token,
+        &Vec::new(&env),
+    );
+
+    client.transfer_budget_ownership(&impostor, &budget_id, &new_owner);
 }

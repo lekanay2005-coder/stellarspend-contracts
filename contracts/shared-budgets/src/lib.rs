@@ -145,7 +145,13 @@ impl SharedBudgetContract {
     }
 
     /// Contributes to a shared budget.
-    pub fn contribute_to_budget(env: Env, contributor: Address, budget_id: u64, amount: i128) {
+    pub fn contribute_to_budget(
+        env: Env,
+        contributor: Address,
+        budget_id: u64,
+        amount: i128,
+        memo: Option<Symbol>,
+    ) {
         contributor.require_auth();
 
         // Validate amount
@@ -182,6 +188,7 @@ impl SharedBudgetContract {
             budget_id,
             contributor: contributor.clone(),
             amount,
+            memo: memo.clone(),
             timestamp: env.ledger().timestamp(),
         };
 
@@ -201,7 +208,7 @@ impl SharedBudgetContract {
             .set(&DataKey::TotalContributionsProcessed, &contribution_id);
 
         // Emit event
-        SharedBudgetEvents::contribution_added(&env, budget_id, &contributor, amount);
+        SharedBudgetEvents::contribution_added(&env, budget_id, &contributor, amount, memo);
     }
 
     /// Spend from a shared budget with spending rule enforcement.
@@ -263,6 +270,42 @@ impl SharedBudgetContract {
 
         // Emit event
         SharedBudgetEvents::expense_incurred(&env, budget_id, &spender, &recipient, amount);
+    }
+
+    /// Transfers budget ownership from the current owner to a new account.
+    ///
+    /// Both the current owner and the new owner must authorize the transfer.
+    /// After transfer, the previous owner loses owner-level control.
+    pub fn transfer_budget_ownership(
+        env: Env,
+        current_owner: Address,
+        budget_id: u64,
+        new_owner: Address,
+    ) {
+        current_owner.require_auth();
+        new_owner.require_auth();
+
+        let mut budget: Budget = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Budget(budget_id))
+            .unwrap_or_else(|| panic_with_error!(&env, SharedBudgetError::BudgetNotFound));
+
+        if current_owner != budget.creator {
+            panic_with_error!(&env, SharedBudgetError::Unauthorized);
+        }
+
+        if current_owner == new_owner {
+            return;
+        }
+
+        budget.creator = new_owner.clone();
+
+        env.storage()
+            .persistent()
+            .set(&DataKey::Budget(budget_id), &budget);
+
+        SharedBudgetEvents::ownership_transferred(&env, budget_id, &current_owner, &new_owner);
     }
 
     /// Add a member to an existing budget.

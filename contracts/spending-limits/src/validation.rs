@@ -72,6 +72,7 @@ mod tests {
             monthly_limit: 100_000_000_000, // 10,000 XLM
             reset_window_seconds: MIN_RESET_WINDOW_SECONDS,
             category: Some(symbol_short!("general")),
+            strategy: crate::types::LimitStrategy::Static,
         }
     }
 

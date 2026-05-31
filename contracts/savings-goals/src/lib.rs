@@ -518,6 +518,105 @@ impl SavingsGoalsContract {
         goal.current_amount
     }
 
+    /// Clones an existing savings goal with a new name and zero balance.
+    pub fn clone_savings_goal(
+        env: Env,
+        caller: Address,
+        goal_id: u64,
+        new_goal_name: Symbol,
+    ) -> u64 {
+        caller.require_auth();
+
+        let existing_goal: SavingsGoal = env
+            .storage()
+            .persistent()
+            .get(&DataKey::Goal(goal_id))
+            .unwrap_or_else(|| panic_with_error!(&env, SavingsGoalError::GoalNotFound));
+
+        if existing_goal.user != caller {
+            panic_with_error!(&env, SavingsGoalError::Unauthorized);
+        }
+
+        // Check for duplicate goal name for this user
+        if validate_goal_name_unique(&env, &caller, &new_goal_name).is_err() {
+            panic_with_error!(&env, SavingsGoalError::InvalidGoalName);
+        }
+
+        let mut goal_id_counter: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::LastGoalId)
+            .unwrap_or(0);
+        goal_id_counter += 1;
+
+        let created_at = env.ledger().timestamp();
+        // Inherit lock duration if it was originally set
+        let lock_duration = if existing_goal.unlock_at > existing_goal.created_at {
+            existing_goal.unlock_at - existing_goal.created_at
+        } else {
+            0
+        };
+        let unlock_at = if lock_duration > 0 {
+            created_at.saturating_add(lock_duration)
+        } else {
+            0
+        };
+
+        let new_goal = SavingsGoal {
+            goal_id: goal_id_counter,
+            user: caller.clone(),
+            goal_name: new_goal_name.clone(),
+            target_amount: existing_goal.target_amount,
+            current_amount: 0, // Reset balance
+            deadline: existing_goal.deadline,
+            created_at,
+            is_active: true,
+            is_complete: false,
+            unlock_at,
+        };
+
+        // Store the goal
+        env.storage()
+            .persistent()
+            .set(&DataKey::Goal(goal_id_counter), &new_goal);
+        // Store name-to-id mapping
+        env.storage().persistent().set(
+            &DataKey::GoalByName(caller.clone(), new_goal_name.clone()),
+            &goal_id_counter,
+        );
+
+        // Update user's goal list
+        let mut user_goals: Vec<u64> = env
+            .storage()
+            .persistent()
+            .get(&DataKey::UserGoals(caller.clone()))
+            .unwrap_or(Vec::new(&env));
+        user_goals.push_back(goal_id_counter);
+        env.storage()
+            .persistent()
+            .set(&DataKey::UserGoals(caller.clone()), &user_goals);
+
+        // Update global counter
+        env.storage()
+            .instance()
+            .set(&DataKey::LastGoalId, &goal_id_counter);
+
+        let total_goals: u64 = env
+            .storage()
+            .instance()
+            .get(&DataKey::TotalGoalsCreated)
+            .unwrap_or(0);
+        env.storage().instance().set(
+            &DataKey::TotalGoalsCreated,
+            &(total_goals + 1),
+        );
+
+        // Emit creation event (reusing batch 0 for manual creation)
+        GoalEvents::goal_created(&env, 0, &new_goal);
+
+        goal_id_counter
+    }
+
     /// Withdraws funds from a savings goal. Rejects withdrawals before unlock time when locked.
     pub fn withdraw_from_goal(env: Env, caller: Address, goal_id: u64, amount: i128) -> i128 {
         caller.require_auth();

@@ -21,14 +21,16 @@
 
 #![no_std]
 
+mod cross_contract;
 mod types;
 mod validation;
 
 use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Vec};
 
 pub use crate::types::{
-    BatchLimitMetrics, BatchLimitResult, DataKey, ErrorCode, LimitEvents, LimitUpdateResult,
-    LimitsConfig, SpendingLimit, SpendingLimitRequest, MAX_BATCH_SIZE,
+    BatchLimitMetrics, BatchLimitResult, DataKey, ErrorCode, EscalationConfig, LimitEvents,
+    LimitStrategy, LimitUpdateResult, LimitsConfig, SpendingLimit, SpendingLimitRequest,
+    MAX_BATCH_SIZE,
 };
 use crate::validation::validate_limit_request;
 
@@ -170,6 +172,7 @@ impl SpendingLimitsContract {
                         category: request.category.clone(),
                         updated_at: current_ledger,
                         is_active: true,
+                        strategy: request.strategy.clone(),
                     };
 
                     // Accumulate metrics
@@ -443,6 +446,26 @@ impl SpendingLimitsContract {
                 panic_with_error!(&env, SpendingLimitError::DailyLimitExceeded);
             } else {
                 panic_with_error!(&env, SpendingLimitError::MonthlyLimitExceeded);
+            }
+        }
+
+        // If adaptive strategy is enabled and user is nearing their limit (>= 90%)
+        // automatically increase the limit by 10% for future transactions.
+        if limit.strategy == crate::types::LimitStrategy::Adaptive
+            && new_monthly >= (limit.monthly_limit * 9 / 10)
+        {
+            let old_limit = limit.monthly_limit;
+            let increment = limit.monthly_limit / 10;
+            let proposed_limit = old_limit.checked_add(increment).unwrap_or(crate::types::MAX_SPENDING_LIMIT);
+
+            limit.monthly_limit = if proposed_limit > crate::types::MAX_SPENDING_LIMIT {
+                crate::types::MAX_SPENDING_LIMIT
+            } else {
+                proposed_limit
+            };
+
+            if limit.monthly_limit != old_limit {
+                LimitEvents::limit_adjusted(&env, &user, old_limit, limit.monthly_limit);
             }
         }
 

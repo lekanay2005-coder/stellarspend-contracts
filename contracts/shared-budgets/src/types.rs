@@ -44,6 +44,8 @@ pub struct BudgetContribution {
     pub contributor: Address,
     /// Amount contributed
     pub amount: i128,
+    /// Optional memo for the contribution
+    pub memo: Option<Symbol>,
     /// Timestamp of the contribution
     pub timestamp: u64,
 }
@@ -100,9 +102,15 @@ impl SharedBudgetEvents {
     }
 
     /// Event emitted when a contribution is added to a budget.
-    pub fn contribution_added(env: &Env, budget_id: u64, contributor: &Address, amount: i128) {
+    pub fn contribution_added(
+        env: &Env,
+        budget_id: u64,
+        contributor: &Address,
+        amount: i128,
+        memo: Option<Symbol>,
+    ) {
         let topics = (symbol_short!("budget"), symbol_short!("contrib"), budget_id);
-        env.events().publish(topics, (contributor.clone(), amount));
+        env.events().publish(topics, (contributor.clone(), amount, memo));
     }
 
     /// Event emitted when an allocation fails for a recipient.
@@ -155,5 +163,17 @@ impl SharedBudgetEvents {
                 rule.requires_approval,
             ),
         );
+    }
+
+    /// Event emitted when budget ownership is transferred to a new account.
+    pub fn ownership_transferred(
+        env: &Env,
+        budget_id: u64,
+        previous_owner: &Address,
+        new_owner: &Address,
+    ) {
+        let topics = (symbol_short!("budget"), symbol_short!("xfer_own"), budget_id);
+        env.events()
+            .publish(topics, (previous_owner.clone(), new_owner.clone()));
     }
 }
