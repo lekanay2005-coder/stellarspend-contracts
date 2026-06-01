@@ -8,7 +8,16 @@ fn test_batch_contribute_success() {
     let env = Env::default();
     let user = Address::generate(&env);
     let goal_ids = vec![1, 2, 3];
+    let targets = vec![100, 200, 300];
     let amounts = vec![100, 200, 300];
+
+    for (goal_id, target) in goal_ids.iter().zip(targets.iter()) {
+        assert_eq!(
+            SavingsContract::create_goal(env.clone(), user.clone(), *goal_id, *target),
+            Ok(())
+        );
+    }
+
     let result = SavingsContract::batch_contribute(
         env.clone(),
         user.clone(),
@@ -16,6 +25,12 @@ fn test_batch_contribute_success() {
         amounts.clone(),
     );
     assert!(result.is_ok());
+
+    for (i, goal_id) in goal_ids.iter().enumerate() {
+        let goal = SavingsContract::get_goal(env.clone(), *goal_id).expect("goal exists");
+        assert_eq!(goal.saved_amount, amounts[i]);
+    }
+
     let events = env.events().all();
     assert!(events.iter().any(|e| e.topics.0 == "milestone"));
 }
@@ -41,18 +56,18 @@ fn test_invalid_goal_id() {
     let user = Address::generate(&env);
     let goal_ids = vec![999];
     let amounts = vec![100];
-    // Patch is_valid_goal to return false for this test
-    // (Would require dependency injection or trait in real code)
-    // Here, just show the test structure
-    // assert_eq!(result, Err("invalid_goal_id"));
+    let result = SavingsContract::batch_contribute(env.clone(), user.clone(), goal_ids, amounts);
+    assert_eq!(result, Err("invalid_goal_id"));
 }
 
 #[test]
 fn test_over_contribution() {
     let env = Env::default();
     let user = Address::generate(&env);
+    assert_eq!(SavingsContract::create_goal(env.clone(), user.clone(), 1, 500), Ok(()));
+
     let goal_ids = vec![1];
-    let amounts = vec![1_000_000];
-    // Patch would_over_contribute to return true for this test
-    // assert_eq!(result, Err("over_contribution"));
+    let amounts = vec![600];
+    let result = SavingsContract::batch_contribute(env.clone(), user.clone(), goal_ids, amounts);
+    assert_eq!(result, Err("over_contribution"));
 }
