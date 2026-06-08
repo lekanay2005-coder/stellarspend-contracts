@@ -1,5 +1,5 @@
-use soroban_sdk::{String, Vec};
 use crate::types::ConversionRate;
+use soroban_sdk::{String, Vec};
 
 pub fn convert_amount(amount: i128, numerator: i128, denominator: i128) -> i128 {
     if amount == 0 {
@@ -25,13 +25,18 @@ pub fn normalize_balances(
     for item in balances.iter() {
         let (currency, amount) = item;
         if currency == base_currency {
-            total = total.checked_add(amount).expect("overflow in normalization");
+            total = total
+                .checked_add(amount)
+                .expect("overflow in normalization");
         } else {
             let mut rate_found = false;
             for rate in rates.iter() {
                 if rate.from_currency == currency && rate.to_currency == base_currency {
-                    let converted = convert_amount(amount, rate.rate_numerator, rate.rate_denominator);
-                    total = total.checked_add(converted).expect("overflow in normalization");
+                    let converted =
+                        convert_amount(amount, rate.rate_numerator, rate.rate_denominator);
+                    total = total
+                        .checked_add(converted)
+                        .expect("overflow in normalization");
                     rate_found = true;
                     break;
                 }

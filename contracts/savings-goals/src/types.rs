@@ -75,6 +75,18 @@ pub struct SavingsGoalProgress {
     pub is_complete: bool,
 }
 
+/// Represents a historical snapshot of a savings goal.
+#[derive(Clone, Debug)]
+#[contracttype]
+pub struct GoalSnapshot {
+    /// Associated goal ID
+    pub goal_id: u64,
+    /// Amount saved at the time of snapshot
+    pub amount: i128,
+    /// Ledger sequence when the snapshot was recorded
+    pub timestamp: u64,
+}
+
 /// Result of processing a single goal creation.
 #[derive(Clone, Debug)]
 #[contracttype]
@@ -246,6 +258,8 @@ pub enum DataKey {
     GoalClosedAt(u64),
     /// Maps (user, goal_name) -> goal_id for duplicate detection
     GoalByName(Address, Symbol),
+    /// Snapshots for a goal (goal_id -> Vec<GoalSnapshot>)
+    GoalSnapshots(u64),
     /// Contribution record keyed by (goal_id, contribution sequential index)
     Contribution(u64, u64),
     /// Last contribution index per goal
@@ -413,10 +427,17 @@ impl GoalEvents {
     }
 
     /// Event emitted when a goal is automatically closed because the target amount was reached.
-    pub fn goal_closed(env: &Env, goal_id: u64, user: &Address, final_amount: i128, closed_at: u64) {
+    pub fn goal_closed(
+        env: &Env,
+        goal_id: u64,
+        user: &Address,
+        final_amount: i128,
+        closed_at: u64,
+    ) {
         let topics = (symbol_short!("goal"), symbol_short!("closed"), goal_id);
         env.events()
             .publish(topics, (goal_id, user.clone(), final_amount, closed_at));
+    }
     /// Event emitted when a savings goal target is reached (completed).
     pub fn goal_completed(env: &Env, goal_id: u64, user: &Address, target_amount: i128) {
         let topics = (
@@ -446,5 +467,11 @@ impl GoalEvents {
         let topics = (symbol_short!("goal"), symbol_short!("renamed"), goal_id);
         env.events()
             .publish(topics, (old_name.clone(), new_name.clone()));
+    }
+
+    /// Event emitted when a snapshot is successfully captured.
+    pub fn goal_snapshot_recorded(env: &Env, goal_id: u64, amount: i128, timestamp: u64) {
+        let topics = (symbol_short!("goal"), symbol_short!("snapshot"), goal_id);
+        env.events().publish(topics, (goal_id, amount, timestamp));
     }
 }

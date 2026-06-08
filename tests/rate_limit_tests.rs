@@ -15,7 +15,7 @@ use rate_limit::RateLimitContract;
 fn setup_env() -> (Env, Address) {
     let env = Env::default();
     env.mock_all_auths();
-    let contract_id = Address::generate(&env);
+    let contract_id = env.register(RateLimitContract, ());
     (env, contract_id)
 }
 

@@ -462,14 +462,14 @@ mod reconciliation {
         let ctx = setup();
         ctx.client.collect_fee(&ctx.payer, &700);
 
-        let status    = ctx.client.get_reconciliation_status();
+        let status = ctx.client.get_reconciliation_status();
         let reconcile = ctx.client.reconcile_fees(&ctx.admin);
 
         // Both views must agree on every field
-        assert_eq!(status.stored_balance,     reconcile.stored_balance);
+        assert_eq!(status.stored_balance, reconcile.stored_balance);
         assert_eq!(status.calculated_balance, reconcile.calculated_balance);
-        assert_eq!(status.discrepancy,        reconcile.discrepancy);
-        assert_eq!(status.is_reconciled,      reconcile.is_reconciled);
+        assert_eq!(status.discrepancy, reconcile.discrepancy);
+        assert_eq!(status.is_reconciled, reconcile.is_reconciled);
     }
 
     // ── Admin access control ───────────────────────────────────────────────
@@ -487,14 +487,14 @@ mod reconciliation {
         let env = soroban_sdk::Env::default();
         env.mock_all_auths();
 
-        let issuer        = Address::generate(&env);
+        let issuer = Address::generate(&env);
         let stellar_asset = env.register_stellar_asset_contract_v2(issuer);
-        let token_id      = stellar_asset.address();
-        let contract_id   = env.register(fee::FeeContract, ());
-        let client        = fee::FeeContractClient::new(&env, &contract_id);
-        let admin         = Address::generate(&env);
-        let treasury      = Address::generate(&env);
-        let fake_admin    = Address::generate(&env);
+        let token_id = stellar_asset.address();
+        let contract_id = env.register(fee::FeeContract, ());
+        let client = fee::FeeContractClient::new(&env, &contract_id);
+        let admin = Address::generate(&env);
+        let treasury = Address::generate(&env);
+        let fake_admin = Address::generate(&env);
 
         client.initialize(&admin, &token_id, &treasury, &250u32, &1u64);
 
@@ -511,8 +511,8 @@ mod reconciliation {
     #[test]
     #[should_panic]
     fn release_fees_requires_admin() {
-        let ctx        = setup();
-        let non_admin  = Address::generate(&ctx.env);
+        let ctx = setup();
+        let non_admin = Address::generate(&ctx.env);
         ctx.client.collect_fee(&ctx.payer, &100);
         ctx.client.release_fees(&non_admin, &1);
     }
@@ -520,7 +520,7 @@ mod reconciliation {
     #[test]
     #[should_panic]
     fn rollover_fees_requires_admin() {
-        let ctx       = setup();
+        let ctx = setup();
         let non_admin = Address::generate(&ctx.env);
         ctx.client.collect_fee(&ctx.payer, &100);
         ctx.client.rollover_fees(&non_admin, &2);
@@ -581,5 +581,4 @@ mod combined {
         assert_eq!(r2.stored_balance, 0);
         assert!(r2.is_reconciled);
     }
-
-  
+}

@@ -228,6 +228,7 @@ mod tests {
             deadline: env.ledger().sequence() as u64 + 1000,
             initial_contribution: 10_000_000, // 1 XLM
             lock_duration_seconds: 0,
+            expiration_seconds: 0,
         }
     }
 

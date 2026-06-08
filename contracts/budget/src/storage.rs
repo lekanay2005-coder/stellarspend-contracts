@@ -387,7 +387,12 @@ pub fn delete_template(env: &Env, template_id: Symbol, user: &Address) {
 
 /// Records a new version of the user's budget configuration into history.
 /// Increments the version counter and trims history to MAX_CONFIG_HISTORY.
-pub fn save_budget_config_version(env: &Env, user: &Address, categories: &Map<Symbol, CategoryBudget>, updated_at: u64) {
+pub fn save_budget_config_version(
+    env: &Env,
+    user: &Address,
+    categories: &Map<Symbol, CategoryBudget>,
+    updated_at: u64,
+) {
     let version: u32 = env
         .storage()
         .persistent()
@@ -436,7 +441,11 @@ pub fn get_budget_config_history(env: &Env, user: &Address) -> Vec<BudgetConfigV
 }
 
 /// Returns a specific version from the user's budget config history, or None.
-pub fn get_budget_config_version(env: &Env, user: &Address, version: u32) -> Option<BudgetConfigVersion> {
+pub fn get_budget_config_version(
+    env: &Env,
+    user: &Address,
+    version: u32,
+) -> Option<BudgetConfigVersion> {
     let history = get_budget_config_history(env, user);
     for entry in history.iter() {
         if entry.version == version {
