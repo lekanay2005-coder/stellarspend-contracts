@@ -1,0 +1,7 @@
+[package]
+name = "spending_proof"
+type = "bin"
+authors = ["StellarSpend"]
+compiler_version = ">=1.0.0"
+
+[dependencies]
