@@ -27,6 +27,8 @@ pub struct SavingsGoalRequest {
     pub initial_contribution: i128,
     /// Optional lock duration in seconds (0 = no lock, withdrawals allowed immediately)
     pub lock_duration_seconds: u64,
+    /// Early withdrawal penalty in basis points (0 = no penalty)
+    pub penalty_bps: u32,
     /// Expiration duration in seconds (0 = no expiration)
     pub expiration_seconds: u64,
 }
@@ -57,6 +59,8 @@ pub struct SavingsGoal {
     pub unlock_at: u64,
     /// Timestamp after which the goal expires (0 = no expiration)
     pub expires_at: u64,
+    /// Early withdrawal penalty in basis points (0 = no penalty)
+    pub penalty_bps: u32,
 }
 
 /// Represents progress information for a savings goal.

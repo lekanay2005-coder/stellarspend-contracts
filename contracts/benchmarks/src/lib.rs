@@ -137,6 +137,7 @@ fn benchmark_goal_creation() {
         initial_contribution: 1000,
         deadline: 1_800_000_000,
         lock_duration_seconds: 0,
+        penalty_bps: 0,
     };
 
     let requests = vec![&env, request];
@@ -181,6 +182,7 @@ fn benchmark_goal_contribution() {
         initial_contribution: 0,
         deadline: 1_800_000_000,
         lock_duration_seconds: 0,
+        penalty_bps: 0,
     };
     client.batch_set_savings_goals(&admin, &vec![&env, request]);
     let goal_id = 1u64;
@@ -221,6 +223,7 @@ fn benchmark_goal_withdrawal() {
         initial_contribution: 2000, // Fully funded
         deadline: 1_800_000_000,
         lock_duration_seconds: 0,
+        penalty_bps: 0,
     };
     client.batch_set_savings_goals(&admin, &vec![&env, request]);
     let goal_id = 1u64;

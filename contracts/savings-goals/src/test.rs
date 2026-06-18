@@ -38,6 +38,7 @@ fn create_valid_request(
         deadline: current_ledger + 1000,
         initial_contribution: amount / 10, // 10% initial contribution
         lock_duration_seconds: 0,
+        penalty_bps: 0,
         expiration_seconds: 0,
     }
 }
@@ -75,6 +76,7 @@ fn test_auto_milestone_events() {
         deadline: env.ledger().sequence() as u64 + 1000,
         initial_contribution: 25_000_000,
         lock_duration_seconds: 0,
+        penalty_bps: 0,
         expiration_seconds: 0,
     });
     let result = client.batch_set_savings_goals(&admin, &requests);
@@ -1106,6 +1108,7 @@ fn test_locked_goal_rejects_withdrawal() {
         deadline: env.ledger().sequence() as u64 + 1000,
         initial_contribution: 50_000_000,
         lock_duration_seconds: 86_400,
+        penalty_bps: 0,
         expiration_seconds: 0,
     });
     client.batch_set_savings_goals(&admin, &requests);
@@ -1131,6 +1134,7 @@ fn test_unlocked_goal_allows_withdrawal() {
         deadline: env.ledger().sequence() as u64 + 1000,
         initial_contribution: 50_000_000,
         lock_duration_seconds: 0,
+        penalty_bps: 0,
         expiration_seconds: 0,
     });
     client.batch_set_savings_goals(&admin, &requests);
@@ -1153,6 +1157,7 @@ fn test_withdrawal_allowed_after_lock_expires() {
         deadline: env.ledger().sequence() as u64 + 1000,
         initial_contribution: 50_000_000,
         lock_duration_seconds: 3_600,
+        penalty_bps: 0,
         expiration_seconds: 0,
     });
     client.batch_set_savings_goals(&admin, &requests);
@@ -1163,6 +1168,50 @@ fn test_withdrawal_allowed_after_lock_expires() {
     assert!(!client.is_goal_locked(&1));
     let remaining = client.withdraw_from_goal(&user, &1, &10_000_000);
     assert_eq!(remaining, 40_000_000);
+}
+
+#[test]
+fn test_early_withdrawal_applies_configured_penalty() {
+    let (env, admin, client) = setup_test_contract();
+    let user = Address::generate(&env);
+
+    let mut requests: Vec<SavingsGoalRequest> = Vec::new(&env);
+    requests.push_back(SavingsGoalRequest {
+        user: user.clone(),
+        goal_name: Symbol::new(&env, "penalty_goal"),
+        target_amount: 100_000_000,
+        deadline: env.ledger().sequence() as u64 + 1000,
+        initial_contribution: 50_000_000,
+        lock_duration_seconds: 0,
+        penalty_bps: 1_000,
+        expiration_seconds: 0,
+    });
+    client.batch_set_savings_goals(&admin, &requests);
+
+    let remaining = client.withdraw_from_goal(&user, &1, &10_000_000);
+    assert_eq!(remaining, 39_000_000);
+}
+
+#[test]
+fn test_withdrawal_has_no_penalty_when_goal_is_complete() {
+    let (env, admin, client) = setup_test_contract();
+    let user = Address::generate(&env);
+
+    let mut requests: Vec<SavingsGoalRequest> = Vec::new(&env);
+    requests.push_back(SavingsGoalRequest {
+        user: user.clone(),
+        goal_name: Symbol::new(&env, "complete_goal"),
+        target_amount: 100_000_000,
+        deadline: env.ledger().sequence() as u64 + 1000,
+        initial_contribution: 100_000_000,
+        lock_duration_seconds: 0,
+        penalty_bps: 1_000,
+        expiration_seconds: 0,
+    });
+    client.batch_set_savings_goals(&admin, &requests);
+
+    let remaining = client.withdraw_from_goal(&user, &1, &10_000_000);
+    assert_eq!(remaining, 90_000_000);
 }
 
 #[test]
@@ -1178,6 +1227,7 @@ fn test_contribute_emits_milestone_events() {
         deadline: env.ledger().sequence() as u64 + 1000,
         initial_contribution: 0,
         lock_duration_seconds: 0,
+        penalty_bps: 0,
         expiration_seconds: 0,
     });
     client.batch_set_savings_goals(&admin, &requests);
@@ -1210,6 +1260,7 @@ fn test_record_and_get_goal_snapshots() {
         deadline: env.ledger().sequence() as u64 + 1000,
         initial_contribution: 10_000_000,
         lock_duration_seconds: 0,
+        penalty_bps: 0,
         expiration_seconds: 0,
     });
     client.batch_set_savings_goals(&admin, &requests);
@@ -1249,6 +1300,7 @@ fn test_clone_savings_goal() {
         deadline: env.ledger().sequence() as u64 + 1000,
         initial_contribution: 50_000_000,
         lock_duration_seconds: 3600,
+        penalty_bps: 0,
         expiration_seconds: 0,
     });
     client.batch_set_savings_goals(&admin, &requests);
@@ -1282,6 +1334,7 @@ fn test_record_goal_snapshot_unauthorized() {
         deadline: env.ledger().sequence() as u64 + 1000,
         initial_contribution: 10_000_000,
         lock_duration_seconds: 0,
+        penalty_bps: 0,
         expiration_seconds: 0,
     });
     client.batch_set_savings_goals(&admin, &requests);
