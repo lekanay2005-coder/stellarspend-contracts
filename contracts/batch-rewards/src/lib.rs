@@ -7,7 +7,7 @@ mod validation;
 #[cfg(test)]
 mod test;
 
-use soroban_sdk::{contract, contractimpl, panic_with_error, token, Address, Env, Vec};
+use soroban_sdk::{contract, contractimpl, panic_with_error, token, Address, Bytes, Env, Vec};
 
 pub use crate::types::{
     BatchRewardResult, DataKey, RewardEvents, RewardRequest, RewardResult, MAX_BATCH_SIZE,
@@ -35,6 +35,8 @@ pub enum BatchRewardsError {
     InsufficientBalance = 7,
     /// Invalid reward amount
     InvalidAmount = 8,
+    /// Duplicate request replay detected for the same idempotency token
+    DuplicateRequest = 9,
 }
 
 impl From<BatchRewardsError> for soroban_sdk::Error {
@@ -112,6 +114,7 @@ impl BatchRewardsContract {
     /// * `env` - The Soroban environment
     /// * `caller` - The address initiating the batch rewards
     /// * `token` - The token contract address (e.g., XLM)
+    /// * `idempotency_token` - Unique token to make batch reward execution idempotent.
     /// * `rewards` - Vector of reward requests containing recipient and amount
     ///
     /// # Returns
@@ -120,11 +123,18 @@ impl BatchRewardsContract {
         env: Env,
         caller: Address,
         token: Address,
+        idempotency_token: Bytes,
         rewards: Vec<RewardRequest>,
     ) -> BatchRewardResult {
         // Verify authorization
         caller.require_auth();
         Self::require_admin(&env, &caller);
+
+        // Reject duplicate idempotency tokens before state changes.
+        let token_key = DataKey::IdempotencyToken(idempotency_token.clone());
+        if env.storage().persistent().has(&token_key) {
+            panic_with_error!(&env, BatchRewardsError::DuplicateRequest);
+        }
 
         // Validate batch size
         let request_count = rewards.len();
@@ -239,6 +249,9 @@ impl BatchRewardsContract {
         env.storage()
             .instance()
             .set(&DataKey::TotalBatches, &batch_id);
+
+        // Mark the idempotency token as used for this completed batch.
+        env.storage().persistent().set(&token_key, &true);
 
         let total_processed: u64 = env
             .storage()

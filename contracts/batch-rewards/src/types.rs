@@ -1,4 +1,4 @@
-use soroban_sdk::{contracttype, symbol_short, Address, Env, Vec};
+use soroban_sdk::{contracttype, symbol_short, Address, Bytes, Env, Vec};
 
 pub const MAX_BATCH_SIZE: u32 = 100;
 
@@ -33,6 +33,7 @@ pub enum DataKey {
     TotalBatches,
     TotalRewardsProcessed,
     TotalVolumeDistributed,
+    IdempotencyToken(Bytes),
 }
 
 pub struct RewardEvents;
