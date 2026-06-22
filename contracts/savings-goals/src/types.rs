@@ -25,6 +25,8 @@ pub struct SavingsGoalRequest {
     pub deadline: u64,
     /// Initial contribution amount (optional, can be 0)
     pub initial_contribution: i128,
+    /// Goal priority. Higher values are funded first for automatic contributions.
+    pub priority: u32,
     /// Optional lock duration in seconds (0 = no lock, withdrawals allowed immediately)
     pub lock_duration_seconds: u64,
     /// Early withdrawal penalty in basis points (0 = no penalty)
@@ -55,6 +57,8 @@ pub struct SavingsGoal {
     pub is_active: bool,
     /// Whether the goal has reached its target amount
     pub is_complete: bool,
+    /// Goal priority. Higher values are funded first for automatic contributions.
+    pub priority: u32,
     /// Timestamp after which withdrawals are allowed (0 = no lock)
     pub unlock_at: u64,
     /// Timestamp after which the goal expires (0 = no expiration)

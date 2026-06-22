@@ -36,6 +36,7 @@ pub use crate::types::{
 use crate::validation::{
     validate_goal_name_unique, validate_goal_request, validate_milestone_request,
 };
+use crate::types::SavingsGoal;
 
 const PERSISTENT_TTL_BUMP: u32 = 12_614_400;
 
@@ -376,6 +377,7 @@ impl SavingsGoalsContract {
                         created_at,
                         is_active: true,
                         is_complete: false,
+                        priority: request.priority,
                         unlock_at,
                         expires_at,
                         penalty_bps: request.penalty_bps,
