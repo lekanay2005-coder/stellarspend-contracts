@@ -27,6 +27,7 @@ mod validation;
 
 use soroban_sdk::{contract, contractimpl, panic_with_error, Address, Env, Symbol, Vec};
 
+use crate::types::SavingsGoal;
 pub use crate::types::{
     BatchGoalMetrics, BatchGoalResult, BatchMilestoneMetrics, BatchMilestoneResult,
     ContributionRecord, DataKey, ErrorCode, GoalEvents, GoalResult, GoalSnapshot,
@@ -376,6 +377,7 @@ impl SavingsGoalsContract {
                         created_at,
                         is_active: true,
                         is_complete: false,
+                        priority: request.priority,
                         unlock_at,
                         expires_at,
                         penalty_bps: request.penalty_bps,
