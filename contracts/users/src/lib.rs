@@ -1,9 +1,9 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
-    Env, String, Vec,
+    contract, contractimpl, contracttype, panic_with_error, symbol_short, Address, Env, String, Vec,
 };
+use shared::errors::SharedError;
 
 mod storage;
 
@@ -18,19 +18,8 @@ pub use storage::{
 #[cfg(test)]
 mod test;
 
-#[contracterror]
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-#[repr(u32)]
-pub enum UserError {
-    NotInitialized = 1,
-    AlreadyInitialized = 2,
-    Unauthorized = 3,
-    UserNotFound = 4,
-    UserAlreadyExists = 5,
-}
-
+#[derive(Clone)]
 #[contracttype]
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DataKey {
     Admin,
 }
@@ -43,7 +32,7 @@ impl UsersContract {
     /// Initialize the users contract with an admin address.
     pub fn initialize(env: Env, admin: Address) {
         if env.storage().instance().has(&DataKey::Admin) {
-            panic_with_error!(&env, UserError::AlreadyInitialized);
+            panic_with_error!(&env, SharedError::AlreadyInitialized);
         }
 
         admin.require_auth();
@@ -55,11 +44,11 @@ impl UsersContract {
 
     /// Register a new user.
     ///
-    /// Issue: "Track when user joined" — the current ledger timestamp is
+    /// Issue: "Track when user joined" - the current ledger timestamp is
     /// recorded via `set_user_last_login` immediately on registration and
     /// can be read back with `get_user_last_login`.
     ///
-    /// Issue: "Emit event when user registers" — a `("users", "reg")` event
+    /// Issue: "Emit event when user registers" - a `("users", "reg")` event
     /// carrying the registrant's address is published on every successful
     /// registration.
     ///
@@ -73,14 +62,7 @@ impl UsersContract {
         let is_new = add_user(&env, user.clone());
 
         if is_new {
-            // ── Issue: Track when user joined ────────────────────────────
-            // Capture the ledger timestamp at the moment of registration so
-            // callers can query it later via `get_user_last_login`.
             set_user_last_login(&env, user.clone(), env.ledger().timestamp());
-
-            // ── Issue: Emit event when user registers ────────────────────
-            // Publish a structured event so off-chain indexers and other
-            // contracts can react to new registrations.
             env.events()
                 .publish((symbol_short!("users"), symbol_short!("reg")), user);
         }
@@ -135,7 +117,7 @@ impl UsersContract {
         user.require_auth();
 
         if !user_exists(&env, user.clone()) {
-            panic_with_error!(&env, UserError::UserNotFound);
+            panic_with_error!(&env, SharedError::ResourceNotFound);
         }
 
         set_default_currency(&env, user.clone(), currency.clone());
@@ -180,7 +162,7 @@ impl UsersContract {
         user.require_auth();
 
         if !user_exists(&env, user.clone()) {
-            panic_with_error!(&env, UserError::UserNotFound);
+            panic_with_error!(&env, SharedError::ResourceNotFound);
         }
 
         let mut updated = false;
@@ -282,7 +264,7 @@ impl UsersContract {
         user.require_auth();
 
         if !user_exists(&env, user.clone()) {
-            panic_with_error!(&env, UserError::UserNotFound);
+            panic_with_error!(&env, SharedError::ResourceNotFound);
         }
 
         let success = set_user_nickname(&env, user.clone(), new_nickname.clone());
@@ -297,26 +279,18 @@ impl UsersContract {
         success
     }
 
-    // ── Internal helpers ─────────────────────────────────────────────────────
-
     fn require_admin(env: &Env, caller: &Address) {
         let admin: Address = env
             .storage()
             .instance()
             .get(&DataKey::Admin)
-            .unwrap_or_else(|| panic_with_error!(env, UserError::NotInitialized));
+            .unwrap_or_else(|| panic_with_error!(env, SharedError::NotInitialized));
         if caller != &admin {
-            panic_with_error!(env, UserError::Unauthorized);
+            panic_with_error!(env, SharedError::Unauthorized);
         }
     }
 }
 
-// ── Issue #336: check_user_exists ─────────────────────────────────────────────
-//
-// Tests live here (not in test.rs) to avoid surfacing pre-existing compile
-// errors in that file (missing Vec import, Option<Address> mismatches, and
-// std::panic::catch_unwind calls incompatible with no_std). Fixing those is
-// tracked separately.
 #[cfg(test)]
 mod check_user_exists_tests {
     use super::{UsersContract, UsersContractClient};
@@ -365,18 +339,15 @@ mod check_user_exists_tests {
         );
     }
 
-    /// Verifies that the join timestamp is populated on registration.
     #[test]
     fn registration_records_join_timestamp() {
         let (env, _admin, client) = setup();
         let user = Address::generate(&env);
 
-        // No timestamp before registration
         assert!(client.get_user_last_login(&user).is_none());
 
         client.register_user(&user);
 
-        // Timestamp present after registration
         assert!(client.get_user_last_login(&user).is_some());
     }
 
